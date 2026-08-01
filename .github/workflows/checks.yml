@@ -1,0 +1,46 @@
+name: checks
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: verify + playtest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      # Data checks: font, sprites, footprints, text fit, and the fairness
+      # invariants on 64 generated routes. Runs in well under a second.
+      - name: Verify
+        run: node tools/verify.mjs
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Drives the real game in a real browser: the autopilot plays all eight
+      # shifts and this fails if the game throws or a shift cannot be cleared.
+      - name: Playtest
+        run: node tools/playtest.mjs
+
+      - name: Capture tour
+        run: node tools/shoot.mjs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: captures
+          path: |
+            shots/
+          retention-days: 14

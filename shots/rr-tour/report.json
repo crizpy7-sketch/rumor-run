@@ -1,0 +1,68 @@
+{
+  "at": "2026-08-01T22:45:34.627Z",
+  "fps": 60,
+  "errors": [],
+  "shots": [
+    {
+      "name": "title",
+      "note": "attract loop: the route scrolls behind the plate",
+      "file": "shots/rr-tour/01-title.png"
+    },
+    {
+      "name": "brief",
+      "note": "shift brief with the rumour as it currently stands",
+      "file": "shots/rr-tour/02-brief.png"
+    },
+    {
+      "name": "run-start",
+      "note": "first metres of the route",
+      "file": "shots/rr-tour/03-run-start.png"
+    },
+    {
+      "name": "run-cruise",
+      "note": "cruising: road, crews, hazards, HUD",
+      "file": "shots/rr-tour/04-run-cruise.png"
+    },
+    {
+      "name": "run-throw",
+      "note": "sheets in flight",
+      "file": "shots/rr-tour/05-run-throw.png"
+    },
+    {
+      "name": "run-mid",
+      "note": "mid-route after a dozen throws",
+      "file": "shots/rr-tour/06-run-mid.png"
+    },
+    {
+      "name": "run-crash",
+      "note": "a hard hazard taken head on",
+      "file": "shots/rr-tour/07-run-crash.png"
+    },
+    {
+      "name": "results",
+      "note": "shift results and the mutated rumour",
+      "file": "shots/rr-tour/08-results.png"
+    },
+    {
+      "name": "upgrade",
+      "note": "site stores: pick one",
+      "file": "shots/rr-tour/09-upgrade.png"
+    },
+    {
+      "name": "brief-2",
+      "note": "next shift brief, kit applied",
+      "file": "shots/rr-tour/10-brief-2.png"
+    },
+    {
+      "name": "ending-gate",
+      "note": "the far gate, and Bomba",
+      "file": "shots/rr-tour/11-ending-gate.png"
+    },
+    {
+      "name": "ending-chain",
+      "note": "the whole chain, gate one to gate eight",
+      "file": "shots/rr-tour/12-ending-chain.png"
+    }
+  ],
+  "level": 1
+}

@@ -1,0 +1,165 @@
+// Boot, scene graph and the glue between the engine and the game.
+
+import { createLoop } from './engine/loop.js';
+import { createInput } from './engine/input.js';
+import { createAudio } from './engine/audio.js';
+import { makeRng, hashSeed } from './engine/rng.js';
+import { validateArt } from './art/sprites.js';
+import { SPRITES } from './art/names.js';
+import { VIEW_W, VIEW_H } from './game/road.js';
+import { LEVELS, baseStats } from './game/levels.js';
+import { RUMOR_SEED, fidelityTier, rumorAt } from './game/rumor.js';
+import { createRunScene } from './game/play.js';
+import {
+  createTitleScene, createBriefScene, createResultsScene,
+  createUpgradeScene, createEndingScene,
+} from './game/screens.js';
+
+export function start(canvas) {
+  // Fail loudly at boot if a sprite is ragged or uses an unknown palette key.
+  validateArt(SPRITES);
+
+  const ctx = canvas.getContext('2d', { alpha: false });
+  ctx.imageSmoothingEnabled = false;
+
+  const input = createInput(window);
+  const audio = createAudio();
+
+  const game = {
+    ctx,
+    canvas,
+    input,
+    audio,
+    levels: LEVELS,
+    rng: makeRng(hashSeed(`rumor-run:${Date.now()}`)),
+    runSalt: 'a',
+    stats: baseStats(),
+    state: {
+      levelIndex: 0,
+      totalScore: 0,
+      rumor: RUMOR_SEED,
+      nextRumor: null,
+      chain: [],
+      attempts: 0,
+    },
+    scene: null,
+    paused: false,
+  };
+
+  function setScene(scene) {
+    game.scene = scene;
+    game.sceneName = scene.name;
+  }
+
+  game.toTitle = () => {
+    game.stats = baseStats();
+    game.state = {
+      levelIndex: 0, totalScore: 0, rumor: RUMOR_SEED,
+      nextRumor: null, chain: [], attempts: 0,
+    };
+    setScene(createTitleScene(game));
+  };
+
+  game.startRun = () => {
+    game.stats = baseStats();
+    game.state.totalScore = 0;
+    game.state.rumor = RUMOR_SEED;
+    game.state.chain = [];
+    game.state.nextRumor = null;
+    game.runSalt = String(Math.floor(Math.random() * 1e6));
+    game.enterBrief(0);
+  };
+
+  game.enterBrief = (levelIndex) => {
+    game.state.levelIndex = levelIndex;
+    setScene(createBriefScene(game, levelIndex));
+  };
+
+  game.enterRun = (levelIndex) => {
+    game.state.levelIndex = levelIndex;
+    setScene(createRunScene(game, levelIndex));
+  };
+
+  // Called by the run scene when the route ends.
+  game.finishLevel = (levelIndex, run) => {
+    const level = LEVELS[levelIndex];
+    const passed = run.delivered >= level.quota;
+    if (passed) {
+      const tier = fidelityTier(run);
+      game.state.nextRumor = rumorAt(levelIndex, tier);
+      game.state.lastTier = tier;
+    } else {
+      game.state.nextRumor = null;
+      game.state.attempts++;
+    }
+    setScene(createResultsScene(game, levelIndex, run, passed));
+  };
+
+  // Called by the results screen once the player has read it.
+  game.afterResults = (levelIndex, run) => {
+    game.state.totalScore += run.score;
+    if (game.state.nextRumor) {
+      game.state.rumor = game.state.nextRumor;
+      game.state.chain.push(game.state.nextRumor);
+      game.state.nextRumor = null;
+    }
+    if (levelIndex >= LEVELS.length - 1) setScene(createEndingScene(game));
+    else setScene(createUpgradeScene(game, levelIndex));
+  };
+
+  const loop = createLoop({
+    update(dt) {
+      if (input.hit('mute')) audio.toggleMute();
+      if (input.anyHit()) audio.unlock();
+      if (input.hit('pause') && game.scene && game.scene.name === 'run') game.paused = !game.paused;
+      if (!game.paused) game.scene.update(dt);
+      audio.tick();
+      input.endFrame();
+    },
+    render() {
+      game.scene.render();
+      if (game.paused) drawPaused(ctx);
+    },
+  });
+
+  game.toTitle();
+  fit(canvas);
+  window.addEventListener('resize', () => fit(canvas));
+  loop.start();
+
+  // Handle for the capture harness (tools/shoot.mjs) and for debugging.
+  window.RUMOR_RUN = {
+    game,
+    loop,
+    input,
+    get scene() { return game.scene; },
+    get fps() { return loop.stats.fps; },
+    version: 1,
+  };
+
+  return { game, loop };
+}
+
+function fit(canvas) {
+  const scale = Math.max(1, Math.min(
+    Math.floor(window.innerWidth / VIEW_W),
+    Math.floor(window.innerHeight / VIEW_H),
+  ));
+  canvas.style.width = `${VIEW_W * scale}px`;
+  canvas.style.height = `${VIEW_H * scale}px`;
+}
+
+function drawPaused(ctx) {
+  ctx.save();
+  ctx.globalAlpha = 0.6;
+  ctx.fillStyle = '#171418';
+  ctx.fillRect(0, 90, VIEW_W, 30);
+  ctx.restore();
+  ctx.fillStyle = '#ffd24a';
+  ctx.fillRect(0, 90, VIEW_W, 1);
+  ctx.fillRect(0, 119, VIEW_W, 1);
+  // Drawn with plain rects so pausing never depends on the font module.
+  ctx.fillStyle = '#fdf6e0';
+  const bars = [0, 1, 2, 3];
+  bars.forEach((i) => ctx.fillRect(VIEW_W / 2 - 14 + i * 8, 100, 4, 10));
+}

@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rumor Run — progress</title>
+<style>
+  :root {
+    --ink:#171418; --paper:#efe4c4; --paper-hi:#fdf6e0;
+    --night:#1b1a1f; --night-hi:#26242c;
+    --gold:#ffd24a; --gold-deep:#8a6410; --grass:#c4e022; --ember:#ff6a3d;
+    --shot-bg:#141317; --dim:#8d8798;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--night); color: var(--paper);
+    font: 15px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  main { max-width: 1000px; margin: 0 auto; padding: 32px 20px 80px; }
+  header.hero { padding: 28px 0 8px; }
+  
+.pixtitle { position: relative; }
+.pixtitle i {
+  position: absolute;
+  width: var(--px); height: var(--px);
+  background: var(--pc);
+}
+  .tagline { color: var(--paper); max-width: 70ch; margin: 22px 0 12px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 10px 22px; color: var(--dim); font-size: 13px; }
+  .meta b { color: var(--gold); font-weight: 600; }
+  a { color: var(--gold); }
+  h2 {
+    margin: 44px 0 14px; font-size: 13px; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--gold); border-bottom: 1px solid var(--night-hi); padding-bottom: 8px;
+  }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .piece, .finding {
+    background: var(--night-hi); border: 1px solid #322f3a; border-left-width: 4px;
+    padding: 12px 14px; border-radius: 3px;
+  }
+  .piece header, .finding header { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .piece h3, .finding h3 { margin: 0; font-size: 15px; color: var(--paper-hi); }
+  .piece p, .finding p { margin: 8px 0 0; font-size: 13px; color: #c3bcae; }
+  .piece.done { border-left-color: var(--grass); }
+  .piece.building { border-left-color: var(--gold); }
+  .piece.queued { border-left-color: #4a4550; }
+  .piece.blocked { border-left-color: var(--ember); }
+  .tag {
+    font-size: 10px; letter-spacing: .16em; padding: 2px 6px; border-radius: 2px;
+    background: #322f3a; color: var(--dim); text-transform: uppercase;
+  }
+  .piece.done .tag { background: var(--grass); color: var(--ink); }
+  .piece.building .tag { background: var(--gold); color: var(--ink); }
+  .tag.fixed { background: var(--grass); color: var(--ink); }
+  .tag.open { background: var(--ember); color: var(--ink); }
+  .round { font-size: 10px; color: var(--dim); letter-spacing: .16em; }
+  .finding.major { border-left-color: var(--ember); }
+  .finding.minor { border-left-color: var(--gold-deep); }
+  ul.loops, ul.timeline { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+  ul.loops li, ul.timeline li {
+    background: var(--night-hi); border: 1px solid #322f3a; padding: 10px 12px;
+    border-radius: 3px; font-size: 13px;
+  }
+  ul.timeline .when { color: var(--gold); margin-right: 10px; font-size: 11px; letter-spacing: .14em; }
+  ul.timeline p { margin: 6px 0 0; color: #c3bcae; }
+  .dim { color: var(--dim); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--night-hi); }
+  th { color: var(--dim); font-weight: 500; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+  tr.pass td:last-child { color: var(--grass); }
+  tr.fail td:last-child { color: var(--ember); }
+  .shots { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(288px, 1fr)); }
+  figure { margin: 0; background: var(--shot-bg); border: 1px solid #322f3a; border-radius: 3px; overflow: hidden; }
+  figure img { display: block; width: 100%; image-rendering: pixelated; background: var(--shot-bg); }
+  figcaption { padding: 6px 8px; font-size: 11px; color: var(--dim); letter-spacing: .1em; }
+  .play {
+    display: inline-block; margin: 14px 0 0; padding: 10px 16px; background: var(--gold);
+    color: var(--ink); text-decoration: none; font-weight: 700; letter-spacing: .12em; border-radius: 2px;
+  }
+  code { background: var(--night-hi); padding: 1px 5px; border-radius: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <div class="pixtitle" style="width:265px;height:35px;--px:5px;--pc:#ffd24a;--gap:1px"><i style="left:0px;top:0px"></i><i style="left:5px;top:0px"></i><i style="left:10px;top:0px"></i><i style="left:15px;top:0px"></i><i style="left:0px;top:5px"></i><i style="left:20px;top:5px"></i><i style="left:0px;top:10px"></i><i style="left:20px;top:10px"></i><i style="left:0px;top:15px"></i><i style="left:5px;top:15px"></i><i style="left:10px;top:15px"></i><i style="left:15px;top:15px"></i><i style="left:0px;top:20px"></i><i style="left:10px;top:20px"></i><i style="left:0px;top:25px"></i><i style="left:15px;top:25px"></i><i style="left:0px;top:30px"></i><i style="left:20px;top:30px"></i><i style="left:30px;top:0px"></i><i style="left:50px;top:0px"></i><i style="left:30px;top:5px"></i><i style="left:50px;top:5px"></i><i style="left:30px;top:10px"></i><i style="left:50px;top:10px"></i><i style="left:30px;top:15px"></i><i style="left:50px;top:15px"></i><i style="left:30px;top:20px"></i><i style="left:50px;top:20px"></i><i style="left:30px;top:25px"></i><i style="left:50px;top:25px"></i><i style="left:35px;top:30px"></i><i style="left:40px;top:30px"></i><i style="left:45px;top:30px"></i><i style="left:60px;top:0px"></i><i style="left:80px;top:0px"></i><i style="left:60px;top:5px"></i><i style="left:65px;top:5px"></i><i style="left:75px;top:5px"></i><i style="left:80px;top:5px"></i><i style="left:60px;top:10px"></i><i style="left:70px;top:10px"></i><i style="left:80px;top:10px"></i><i style="left:60px;top:15px"></i><i style="left:70px;top:15px"></i><i style="left:80px;top:15px"></i><i style="left:60px;top:20px"></i><i style="left:80px;top:20px"></i><i style="left:60px;top:25px"></i><i style="left:80px;top:25px"></i><i style="left:60px;top:30px"></i><i style="left:80px;top:30px"></i><i style="left:95px;top:0px"></i><i style="left:100px;top:0px"></i><i style="left:105px;top:0px"></i><i style="left:90px;top:5px"></i><i style="left:110px;top:5px"></i><i style="left:90px;top:10px"></i><i style="left:110px;top:10px"></i><i style="left:90px;top:15px"></i><i style="left:110px;top:15px"></i><i style="left:90px;top:20px"></i><i style="left:110px;top:20px"></i><i style="left:90px;top:25px"></i><i style="left:110px;top:25px"></i><i style="left:95px;top:30px"></i><i style="left:100px;top:30px"></i><i style="left:105px;top:30px"></i><i style="left:120px;top:0px"></i><i style="left:125px;top:0px"></i><i style="left:130px;top:0px"></i><i style="left:135px;top:0px"></i><i style="left:120px;top:5px"></i><i style="left:140px;top:5px"></i><i style="left:120px;top:10px"></i><i style="left:140px;top:10px"></i><i style="left:120px;top:15px"></i><i style="left:125px;top:15px"></i><i style="left:130px;top:15px"></i><i style="left:135px;top:15px"></i><i style="left:120px;top:20px"></i><i style="left:130px;top:20px"></i><i style="left:120px;top:25px"></i><i style="left:135px;top:25px"></i><i style="left:120px;top:30px"></i><i style="left:140px;top:30px"></i><i style="left:180px;top:0px"></i><i style="left:185px;top:0px"></i><i style="left:190px;top:0px"></i><i style="left:195px;top:0px"></i><i style="left:180px;top:5px"></i><i style="left:200px;top:5px"></i><i style="left:180px;top:10px"></i><i style="left:200px;top:10px"></i><i style="left:180px;top:15px"></i><i style="left:185px;top:15px"></i><i style="left:190px;top:15px"></i><i style="left:195px;top:15px"></i><i style="left:180px;top:20px"></i><i style="left:190px;top:20px"></i><i style="left:180px;top:25px"></i><i style="left:195px;top:25px"></i><i style="left:180px;top:30px"></i><i style="left:200px;top:30px"></i><i style="left:210px;top:0px"></i><i style="left:230px;top:0px"></i><i style="left:210px;top:5px"></i><i style="left:230px;top:5px"></i><i style="left:210px;top:10px"></i><i style="left:230px;top:10px"></i><i style="left:210px;top:15px"></i><i style="left:230px;top:15px"></i><i style="left:210px;top:20px"></i><i style="left:230px;top:20px"></i><i style="left:210px;top:25px"></i><i style="left:230px;top:25px"></i><i style="left:215px;top:30px"></i><i style="left:220px;top:30px"></i><i style="left:225px;top:30px"></i><i style="left:240px;top:0px"></i><i style="left:260px;top:0px"></i><i style="left:240px;top:5px"></i><i style="left:245px;top:5px"></i><i style="left:260px;top:5px"></i><i style="left:240px;top:10px"></i><i style="left:250px;top:10px"></i><i style="left:260px;top:10px"></i><i style="left:240px;top:15px"></i><i style="left:250px;top:15px"></i><i style="left:260px;top:15px"></i><i style="left:240px;top:20px"></i><i style="left:255px;top:20px"></i><i style="left:260px;top:20px"></i><i style="left:240px;top:25px"></i><i style="left:260px;top:25px"></i><i style="left:240px;top:30px"></i><i style="left:260px;top:30px"></i></div>
+    <p class="tagline">Deliver the rumors. Dodge the drama. Pick up Bomba. An original arcade game: Federico drives a site buggy along an angled jobsite route throwing gossip at scaffold crews, while the rumor mutates on its way to Bomba.</p>
+    <div class="meta">
+      <span>cycle <b>1</b></span>
+      <span>build <b>de650ff</b></span>
+      <span>captured fps <b>60</b></span>
+      <span>page errors <b>0</b></span>
+      <span>2026-08-01T08:51:12+00:00</span>
+    </div>
+    <a class="play" href="https://crizpy7-sketch.github.io/rumor-run/">PLAY — crizpy7-sketch.github.io/rumor-run</a>
+  </header>
+
+  <h2>Pieces</h2>
+  <div class="grid">
+    <article class="piece done">
+      <header><h3>Foundation + projection</h3><span class="tag">DONE</span></header>
+      <p>60Hz fixed-step loop, action-named input with edge detection, seeded RNG, road-space projection with per-row surface scan, sprite + footprint registry, capture harness, procedural soundtrack.</p>
+      
+    </article>
+    <article class="piece done">
+      <header><h3>Art</h3><span class="tag">DONE</span></header>
+      <p>Hand-authored pixel art: ground, buggy with steer and wreck frames, cast, the obstacle catalogue, targets, fx, UI chrome, plus a 5x7 font shared with this page.</p>
+      <span class="round">ROUND 1</span>
+    </article>
+    <article class="piece done">
+      <header><h3>Buggy feel + throwing</h3><span class="tag">DONE</span></header>
+      <p>Speed-scaled steering authority, roll-on throttle, off-road drag, crash and recover with invulnerability, two-sided throwing plus a nearest-target assist, sheets on a real ballistic arc.</p>
+      <span class="round">ROUND 1</span>
+    </article>
+    <article class="piece done">
+      <header><h3>Hazards + targets</h3><span class="tag">DONE</span></header>
+      <p>Twelve hazard kinds across six harm types, 30-frame telegraphing on everything that moves, near-miss detection, four target kinds with hit-quality tiers, 80+ barks.</p>
+      <span class="round">ROUND 1</span>
+    </article>
+    <article class="piece done">
+      <header><h3>Levels 1-8 + spawner</h3><span class="tag">DONE</span></header>
+      <p>Eight themed shifts, deterministic route generation from a seed, escalating hazard mix and speed caps, the rumour chain threaded through all of them.</p>
+      <span class="round">ROUND 1</span>
+    </article>
+    <article class="piece done">
+      <header><h3>Score, upgrades, Bomba payoff</h3><span class="tag">DONE</span></header>
+      <p>Quality x combo scoring, near misses, nine upgrades offered three at a time, HUD, brief/results/stores screens, and the far-gate ending that replays the whole chain.</p>
+      <span class="round">ROUND 1</span>
+    </article>
+    <article class="piece done">
+      <header><h3>Progress page + regression</h3><span class="tag">DONE</span></header>
+      <p>Static server, screenshot tour, this page, a browser-free verifier over the shipped data, an autopilot that plays all eight shifts, and CI running the lot on every push.</p>
+      <span class="round">ROUND 2</span>
+    </article></div>
+
+  <h2>Build loops</h2><ul class="loops">
+    <li><b>foundation</b> <span class="dim">verified · round 1</span><br>projection proven by capture before anything was built on it</li>
+    <li><b>drive</b> <span class="dim">verified · round 1</span><br>throw path found broken by the first capture and fixed</li>
+    <li><b>levels</b> <span class="dim">verified · round 1</span><br>target placement retuned against measured throw range</li>
+    <li><b>harness</b> <span class="dim">verified · round 1</span><br>autopilot clears every shift end to end</li>
+    <li><b>harness</b> <span class="dim">verified · round 2</span><br>verifier asserts route fairness and throw geometry without a browser, in 0.14s</li>
+    <li><b>meta</b> <span class="dim">verified · round 2</span><br>playtest now takes the most disruptive upgrade on offer, which is how HIGH LOB was caught</li></ul>
+
+  <h2>Autopilot playthrough</h2>
+  <p class="dim">Every shift, played end to end by <code>tools/bot.js</code>. A shift the bot cannot clear is a bug, not a difficulty setting.</p>
+  <table>
+    <tr><th>#</th><th>Shift</th><th>Delivered</th><th>Bull</th><th>Solid</th><th>Whisper</th><th>Crashes</th><th>Combo</th><th>Score</th><th></th></tr>
+    
+    <tr class="pass">
+      <td>L1</td><td>MORNING GATE</td>
+      <td>17/6</td>
+      <td>9</td><td>5</td><td>3</td>
+      <td>0</td><td>x9</td><td>4463</td>
+      <td>PASS</td>
+    </tr>
+    <tr class="pass">
+      <td>L2</td><td>SPOIL HEAP</td>
+      <td>19/8</td>
+      <td>9</td><td>10</td><td>0</td>
+      <td>3</td><td>x9</td><td>5294</td>
+      <td>PASS</td>
+    </tr>
+    <tr class="pass">
+      <td>L3</td><td>MIXER ALLEY</td>
+      <td>16/9</td>
+      <td>8</td><td>6</td><td>2</td>
+      <td>4</td><td>x7</td><td>5820</td>
+      <td>PASS</td>
+    </tr>
+    <tr class="pass">
+      <td>L4</td><td>THE WET POUR</td>
+      <td>21/10</td>
+      <td>11</td><td>9</td><td>1</td>
+      <td>0</td><td>x8</td><td>9928</td>
+      <td>PASS</td>
+    </tr>
+    <tr class="pass">
+      <td>L5</td><td>FORKLIFT CROSSING</td>
+      <td>25/11</td>
+      <td>17</td><td>7</td><td>1</td>
+      <td>4</td><td>x6</td><td>12549</td>
+      <td>PASS</td>
+    </tr>
+    <tr class="pass">
+      <td>L6</td><td>SCAFFOLD ROW</td>
+      <td>28/12</td>
+      <td>15</td><td>10</td><td>3</td>
+      <td>10</td><td>x10</td><td>13265</td>
+      <td>PASS</td>
+    </tr>
+    <tr class="pass">
+      <td>L7</td><td>NIGHT POUR</td>
+      <td>32/13</td>
+      <td>19</td><td>10</td><td>3</td>
+      <td>10</td><td>x7</td><td>12069</td>
+      <td>PASS</td>
+    </tr>
+    <tr class="pass">
+      <td>L8</td><td>THE LONG GATE</td>
+      <td>30/14</td>
+      <td>13</td><td>14</td><td>3</td>
+      <td>11</td><td>x10</td><td>13796</td>
+      <td>PASS</td>
+    </tr>
+  </table>
+
+  <h2>Findings</h2><div class="grid">
+    <article class="finding major fixed">
+      <header><h3>Nobody could throw anything</h3>
+        <span class="tag">major</span><span class="tag fixed">fixed</span></header>
+      <p><span class="dim">drive</span> — The throw gate tested `buggy.cooldown &lt;= 0`, but the field was never initialised, so the comparison was `undefined &lt;= 0` — false forever. Every throw in the game was silently swallowed. The first capture tour caught it: sheets never appeared and the delivery counter stayed on zero through a full route.</p>
+    </article>
+    <article class="finding major fixed">
+      <header><h3>Crews stood outside throwing range</h3>
+        <span class="tag">major</span><span class="tag fixed">fixed</span></header>
+      <p><span class="dim">levels</span> — Targets were placed 10.1-12.1 m off the centre line against a base throw range of 8 m, so most deliveries were geometrically impossible even with the buggy hugging the kerb. Crews moved in to 9.3-10.9 m and the base range went to 10 m, which makes the near side comfortable and the far side a decision.</p>
+    </article>
+    <article class="finding major fixed">
+      <header><h3>Every delivery scored as a whisper</h3>
+        <span class="tag">major</span><span class="tag fixed">fixed</span></header>
+      <p><span class="dim">meta</span> — Hit quality was measured where the sheet happened to be on the frame contact was detected — which is always the edge of the hitbox — so the autopilot landed 15 deliveries in a row and every one of them graded as the worst tier. Quality now comes from the throw's closest approach to the crew, solved from the sheet's velocity. Bullseyes went from 0 per shift to 11.</p>
+    </article>
+    <article class="finding major fixed">
+      <header><h3>Scaffold crews were unreachable</h3>
+        <span class="tag">major</span><span class="tag fixed">fixed</span></header>
+      <p><span class="dim">hazards</span> — Crews on scaffolds had a hitbox starting 2.4 m up while a sheet's arc peaked at 1.76 m. Every scaffold delivery from level 5 onward was geometrically impossible. The arc now peaks at 2.09 m and the scaffold hitbox starts at 1.6 m, so reaching one means getting closer than you would for a crew on the ground — a real distinction instead of an impossible one.</p>
+    </article>
+    <article class="finding major fixed">
+      <header><h3>Some generated routes could not be driven</h3>
+        <span class="tag">major</span><span class="tag fixed">fixed</span></header>
+      <p><span class="dim">levels</span> — Route generation could place solid hazards across the full paved width with no gap to thread, and could bury a crew's approach behind them. On one seed the autopilot failed the same shift three times with eight crashes a run, while another seed of the same shift cleared 20 of 20. Generation now runs a fairness pass: hazards that would leave less than 2.8 m of clean surface are dropped, and the outer half of a crew's own side is cleared for the 13 m run-up.</p>
+    </article>
+    <article class="finding major fixed">
+      <header><h3>One upgrade quietly broke the whole game</h3>
+        <span class="tag">major</span><span class="tag fixed">fixed</span></header>
+      <p><span class="dim">meta</span> — HIGH LOB raises the throw arc, and a raised arc sails clean over a crew whose catch window has a low ceiling. Taking it meant every ground delivery for the rest of the run passed above every crew's head: the autopilot threw 19 sheets on a shift and landed none of them. Because upgrade offers are random, it only reproduced in some sessions. Ground crews now have a catch window tall enough to take a lob, HIGH LOB is capped at one copy, and the playtest deliberately takes the most disruptive upgrade on offer rather than whatever the cursor was on.</p>
+    </article>
+    <article class="finding major fixed">
+      <header><h3>The fairness pass had a hole it could not see</h3>
+        <span class="tag">major</span><span class="tag fixed">fixed</span></header>
+      <p><span class="dim">levels</span> — The first version of the drivable-line pass checked each hazard only against those already placed behind it, so a hazard that was fine against its predecessors and fine against its successors could still be lethal with both at once. The verifier asserts the property from both directions and found 13 walled-off routes across 64 seeds. Generation now repairs until the property actually holds, dropping whichever member of the tightest wall opens it up most.</p>
+    </article>
+    <article class="finding minor fixed">
+      <header><h3>Combos could not chain</h3>
+        <span class="tag">minor</span><span class="tag fixed">fixed</span></header>
+      <p><span class="dim">meta</span> — The combo held for 2.6 s while crews sit about three seconds apart at cruise, so the meter reset between every delivery and never passed x2. Raised to 4.2 s: a clean shift now runs to x14.</p>
+    </article>
+    <article class="finding major fixed">
+      <header><h3>The road would have rendered as a staircase</h3>
+        <span class="tag">major</span><span class="tag fixed">fixed</span></header>
+      <p><span class="dim">foundation</span> — Drawing the surface as one axis-aligned rect per metre stairsteps the diagonal edges. The projection is instead inverted per screen row, so the road centre on row y is a closed form and the edges land on exact positions. Designed in from the start and documented in road.js rather than discovered late.</p>
+    </article></div>
+
+  <h2>Captures</h2>
+  
+      <section class="gallery">
+        <h3>The standard tour</h3>
+        <p class="dim">Every screen the game has, captured from the real running build by tools/shoot.mjs: attract loop, brief, the route, a crash, results, the stores, and the payoff at the far gate.</p>
+        <div class="shots">
+          <figure><img src="../shots/rr-tour/01-title.png" alt="01-title.png" loading="lazy"><figcaption>01-title</figcaption></figure><figure><img src="../shots/rr-tour/02-brief.png" alt="02-brief.png" loading="lazy"><figcaption>02-brief</figcaption></figure><figure><img src="../shots/rr-tour/03-run-start.png" alt="03-run-start.png" loading="lazy"><figcaption>03-run-start</figcaption></figure><figure><img src="../shots/rr-tour/04-run-cruise.png" alt="04-run-cruise.png" loading="lazy"><figcaption>04-run-cruise</figcaption></figure><figure><img src="../shots/rr-tour/05-run-throw.png" alt="05-run-throw.png" loading="lazy"><figcaption>05-run-throw</figcaption></figure><figure><img src="../shots/rr-tour/06-run-mid.png" alt="06-run-mid.png" loading="lazy"><figcaption>06-run-mid</figcaption></figure><figure><img src="../shots/rr-tour/07-run-crash.png" alt="07-run-crash.png" loading="lazy"><figcaption>07-run-crash</figcaption></figure><figure><img src="../shots/rr-tour/08-results.png" alt="08-results.png" loading="lazy"><figcaption>08-results</figcaption></figure><figure><img src="../shots/rr-tour/09-upgrade.png" alt="09-upgrade.png" loading="lazy"><figcaption>09-upgrade</figcaption></figure><figure><img src="../shots/rr-tour/10-brief-2.png" alt="10-brief-2.png" loading="lazy"><figcaption>10-brief-2</figcaption></figure><figure><img src="../shots/rr-tour/11-ending-gate.png" alt="11-ending-gate.png" loading="lazy"><figcaption>11-ending-gate</figcaption></figure><figure><img src="../shots/rr-tour/12-ending-chain.png" alt="12-ending-chain.png" loading="lazy"><figcaption>12-ending-chain</figcaption></figure>
+        </div>
+        
+      </section>
+
+  <h2>Timeline</h2><ul class="timeline">
+    <li><span class="when">cycle 1</span><b>Foundation and projection</b><p>60Hz engine, input remapped for driving and two-sided throwing, and 288x216 because a 4:3 screen gives an angled route the vertical room it needs to telegraph hazards.</p></li>
+    <li><span class="when">cycle 1</span><b>Contracts pinned</b><p>CONTRACTS.md fixed ownership, the feel targets a critic can measure, and the humour rules. art/names.js pins every sprite name AND its road-space hitbox, so gameplay and art can never disagree about how big a thing is.</p></li>
+    <li><span class="when">cycle 1</span><b>Whole game built and captured</b><p>Art, driving, hazards and targets, the eight routes, and the scoring and payoff, each verified against the real running game rather than against intent.</p></li>
+    <li><span class="when">cycle 1</span><b>Autopilot regression</b><p>tools/bot.js drives every shift to the far gate. It caught the throw range mismatch immediately and now guards against any tuning change that makes a shift unclearable.</p></li>
+    <li><span class="when">cycle 2</span><b>Repo assembled</b><p>A browser-free verifier over the shipped data, CI running verify + playtest + capture on every push, and a Pages workflow so the play link is real. The verifier immediately found a hole in the route fairness pass and, once pointed at throw geometry, the upgrade that broke every ground delivery.</p></li></ul>
+</main>
+</body>
+</html>
