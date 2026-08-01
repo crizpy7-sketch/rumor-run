@@ -50,15 +50,25 @@ ownership, and the feel targets the harness measures.
 ## Harness
 
 ```sh
+npm test                       # data checks, no browser, under a second
+node tools/playtest.mjs        # autopilot plays all eight shifts -> shots/playtest.json
 node tools/shoot.mjs           # screenshot tour of every screen -> shots/rr-tour/
 node tools/shoot.mjs --level 6 # start the tour on a given shift
-node tools/playtest.mjs        # autopilot plays all eight shifts -> shots/playtest.json
 node tools/rr-progress.mjs     # build progress/rumor-run.html from the results
+npm run check                  # all four, in order
 ```
+
+`tools/verify.mjs` asserts properties of the shipped data: the font and sprites
+are well formed, every sprite gameplay can draw is pinned with a footprint, no
+line of text is too long for the panel it appears in, and 64 generated routes
+all leave a drivable line and an open delivery lane.
 
 `tools/playtest.mjs` exits non-zero if the game throws or if any shift cannot be
 cleared by the autopilot in `tools/bot.js`. A level nobody can clear is a bug,
-not a difficulty setting.
+not a difficulty setting. It runs at 4× by default (same fixed 1/60 step, more
+steps per frame); pass `--realtime` to watch it honestly, `--seed <name>` for a
+different jobsite, `--levels <n>` to stop early.
 
-Both harness tools drive a real browser through Playwright and expect Chromium
-at `/opt/pw-browsers/chromium`; override with `CHROME_PATH`.
+Both browser tools use `CHROME_PATH` if set, the preinstalled Chromium at
+`/opt/pw-browsers/chromium` if it exists, and otherwise whatever Playwright
+downloaded. CI in `.github/workflows/checks.yml` runs all of it on every push.

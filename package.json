@@ -6,9 +6,12 @@
   "type": "module",
   "scripts": {
     "start": "node tools/serve.mjs",
+    "test": "node tools/verify.mjs",
+    "verify": "node tools/verify.mjs",
     "shoot": "node tools/shoot.mjs",
     "playtest": "node tools/playtest.mjs",
-    "progress": "node tools/rr-progress.mjs"
+    "progress": "node tools/rr-progress.mjs",
+    "check": "node tools/verify.mjs && node tools/playtest.mjs && node tools/shoot.mjs && node tools/rr-progress.mjs"
   },
   "devDependencies": {
     "playwright": "^1.62.1"

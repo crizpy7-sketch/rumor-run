@@ -14,10 +14,10 @@ import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serve } from './serve.mjs';
+import { launchOptions } from './browser.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const OUT = join(ROOT, 'shots', 'rr-tour');
-const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium';
 const PORT = 8137;
 
 const args = process.argv.slice(2);
@@ -31,7 +31,7 @@ async function main() {
   await mkdir(OUT, { recursive: true });
   const { server } = await serve(PORT);
 
-  const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+  const browser = await chromium.launch(launchOptions());
   const page = await browser.newPage({ viewport: { width: 576, height: 432 } });
 
   page.on('pageerror', (err) => errors.push(String(err.stack || err)));

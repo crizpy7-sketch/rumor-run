@@ -13,6 +13,7 @@ window.__runBot = function runBot({ maxSeconds = 240 } = {}) {
   const held = new Set();
   const fired = new Set();
   const missed = { range: 0, timing: 0 };
+  const log = [];
   let thrown = 0;
   let refused = 0;
   let sheetsBefore = -1;
@@ -124,6 +125,15 @@ window.__runBot = function runBot({ maxSeconds = 240 } = {}) {
             input.press(throwAction);
             throwFrames = 2;
             thrown++;
+            if (log.length < 6) {
+              log.push({
+                tgS: +target.s.toFixed(2), tgT: +target.t.toFixed(2), kind: target.kind,
+                buggyS: +buggy.s.toFixed(2), buggyT: +buggy.t.toFixed(2),
+                speed: +buggy.speed.toFixed(2), lat: +lat.toFixed(2),
+                crossAt: +crossAt.toFixed(3), landing: +landing.toFixed(2),
+                range: stats.throwRange, loft: stats.loft, side: throwAction,
+              });
+            }
             // A throw the game refuses (mid-crash, or out of paper) is not the
             // same as one that missed; count them apart.
             sheetsBefore = run.sheets;
@@ -160,7 +170,7 @@ window.__runBot = function runBot({ maxSeconds = 240 } = {}) {
         time: Math.round(run.time * 10) / 10,
         // Why crews went unserved: out of throwing range, or the release point
         // slid past before the bot could take it.
-        thrown, refused, outOfRange: missed.range, badTiming: missed.timing,
+        thrown, refused, outOfRange: missed.range, badTiming: missed.timing, log,
       };
       game.finishLevel = origFinish;
       return origFinish.call(this, levelIndex, run);

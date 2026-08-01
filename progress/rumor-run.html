@@ -88,10 +88,10 @@
     <p class="tagline">Deliver the rumors. Dodge the drama. Pick up Bomba. An original arcade game: Federico drives a site buggy along an angled jobsite route throwing gossip at scaffold crews, while the rumor mutates on its way to Bomba.</p>
     <div class="meta">
       <span>cycle <b>1</b></span>
-      <span>build <b>b425c91</b></span>
+      <span>build <b>de650ff</b></span>
       <span>captured fps <b>60</b></span>
       <span>page errors <b>0</b></span>
-      <span>2026-08-01T02:55:36-05:00</span>
+      <span>2026-08-01T08:51:12+00:00</span>
     </div>
     <a class="play" href="https://crizpy7-sketch.github.io/rumor-run/">PLAY — crizpy7-sketch.github.io/rumor-run</a>
   </header>
@@ -130,15 +130,17 @@
     </article>
     <article class="piece done">
       <header><h3>Progress page + regression</h3><span class="tag">DONE</span></header>
-      <p>Static server, screenshot tour, this page, and an autopilot that plays all eight shifts and fails the build if one of them cannot be cleared.</p>
-      <span class="round">ROUND 1</span>
+      <p>Static server, screenshot tour, this page, a browser-free verifier over the shipped data, an autopilot that plays all eight shifts, and CI running the lot on every push.</p>
+      <span class="round">ROUND 2</span>
     </article></div>
 
   <h2>Build loops</h2><ul class="loops">
     <li><b>foundation</b> <span class="dim">verified · round 1</span><br>projection proven by capture before anything was built on it</li>
     <li><b>drive</b> <span class="dim">verified · round 1</span><br>throw path found broken by the first capture and fixed</li>
     <li><b>levels</b> <span class="dim">verified · round 1</span><br>target placement retuned against measured throw range</li>
-    <li><b>harness</b> <span class="dim">verified · round 1</span><br>autopilot clears every shift end to end</li></ul>
+    <li><b>harness</b> <span class="dim">verified · round 1</span><br>autopilot clears every shift end to end</li>
+    <li><b>harness</b> <span class="dim">verified · round 2</span><br>verifier asserts route fairness and throw geometry without a browser, in 0.14s</li>
+    <li><b>meta</b> <span class="dim">verified · round 2</span><br>playtest now takes the most disruptive upgrade on offer, which is how HIGH LOB was caught</li></ul>
 
   <h2>Autopilot playthrough</h2>
   <p class="dim">Every shift, played end to end by <code>tools/bot.js</code>. A shift the bot cannot clear is a bug, not a difficulty setting.</p>
@@ -148,57 +150,57 @@
     <tr class="pass">
       <td>L1</td><td>MORNING GATE</td>
       <td>17/6</td>
-      <td>11</td><td>5</td><td>1</td>
-      <td>0</td><td>x7</td><td>4403</td>
+      <td>9</td><td>5</td><td>3</td>
+      <td>0</td><td>x9</td><td>4463</td>
       <td>PASS</td>
     </tr>
     <tr class="pass">
       <td>L2</td><td>SPOIL HEAP</td>
       <td>19/8</td>
-      <td>6</td><td>10</td><td>3</td>
-      <td>3</td><td>x9</td><td>4592</td>
+      <td>9</td><td>10</td><td>0</td>
+      <td>3</td><td>x9</td><td>5294</td>
       <td>PASS</td>
     </tr>
     <tr class="pass">
       <td>L3</td><td>MIXER ALLEY</td>
-      <td>21/9</td>
-      <td>12</td><td>7</td><td>2</td>
-      <td>2</td><td>x9</td><td>8999</td>
+      <td>16/9</td>
+      <td>8</td><td>6</td><td>2</td>
+      <td>4</td><td>x7</td><td>5820</td>
       <td>PASS</td>
     </tr>
     <tr class="pass">
       <td>L4</td><td>THE WET POUR</td>
-      <td>25/10</td>
-      <td>11</td><td>10</td><td>4</td>
-      <td>0</td><td>x10</td><td>11193</td>
+      <td>21/10</td>
+      <td>11</td><td>9</td><td>1</td>
+      <td>0</td><td>x8</td><td>9928</td>
       <td>PASS</td>
     </tr>
     <tr class="pass">
       <td>L5</td><td>FORKLIFT CROSSING</td>
-      <td>27/11</td>
-      <td>16</td><td>8</td><td>3</td>
-      <td>4</td><td>x16</td><td>15639</td>
+      <td>25/11</td>
+      <td>17</td><td>7</td><td>1</td>
+      <td>4</td><td>x6</td><td>12549</td>
       <td>PASS</td>
     </tr>
     <tr class="pass">
       <td>L6</td><td>SCAFFOLD ROW</td>
-      <td>29/12</td>
-      <td>11</td><td>12</td><td>6</td>
-      <td>10</td><td>x10</td><td>12997</td>
+      <td>28/12</td>
+      <td>15</td><td>10</td><td>3</td>
+      <td>10</td><td>x10</td><td>13265</td>
       <td>PASS</td>
     </tr>
     <tr class="pass">
       <td>L7</td><td>NIGHT POUR</td>
-      <td>27/13</td>
-      <td>17</td><td>7</td><td>3</td>
-      <td>7</td><td>x6</td><td>10976</td>
+      <td>32/13</td>
+      <td>19</td><td>10</td><td>3</td>
+      <td>10</td><td>x7</td><td>12069</td>
       <td>PASS</td>
     </tr>
     <tr class="pass">
       <td>L8</td><td>THE LONG GATE</td>
-      <td>41/14</td>
-      <td>25</td><td>11</td><td>5</td>
-      <td>15</td><td>x14</td><td>18415</td>
+      <td>30/14</td>
+      <td>13</td><td>14</td><td>3</td>
+      <td>11</td><td>x10</td><td>13796</td>
       <td>PASS</td>
     </tr>
   </table>
@@ -229,6 +231,16 @@
         <span class="tag">major</span><span class="tag fixed">fixed</span></header>
       <p><span class="dim">levels</span> — Route generation could place solid hazards across the full paved width with no gap to thread, and could bury a crew's approach behind them. On one seed the autopilot failed the same shift three times with eight crashes a run, while another seed of the same shift cleared 20 of 20. Generation now runs a fairness pass: hazards that would leave less than 2.8 m of clean surface are dropped, and the outer half of a crew's own side is cleared for the 13 m run-up.</p>
     </article>
+    <article class="finding major fixed">
+      <header><h3>One upgrade quietly broke the whole game</h3>
+        <span class="tag">major</span><span class="tag fixed">fixed</span></header>
+      <p><span class="dim">meta</span> — HIGH LOB raises the throw arc, and a raised arc sails clean over a crew whose catch window has a low ceiling. Taking it meant every ground delivery for the rest of the run passed above every crew's head: the autopilot threw 19 sheets on a shift and landed none of them. Because upgrade offers are random, it only reproduced in some sessions. Ground crews now have a catch window tall enough to take a lob, HIGH LOB is capped at one copy, and the playtest deliberately takes the most disruptive upgrade on offer rather than whatever the cursor was on.</p>
+    </article>
+    <article class="finding major fixed">
+      <header><h3>The fairness pass had a hole it could not see</h3>
+        <span class="tag">major</span><span class="tag fixed">fixed</span></header>
+      <p><span class="dim">levels</span> — The first version of the drivable-line pass checked each hazard only against those already placed behind it, so a hazard that was fine against its predecessors and fine against its successors could still be lethal with both at once. The verifier asserts the property from both directions and found 13 walled-off routes across 64 seeds. Generation now repairs until the property actually holds, dropping whichever member of the tightest wall opens it up most.</p>
+    </article>
     <article class="finding minor fixed">
       <header><h3>Combos could not chain</h3>
         <span class="tag">minor</span><span class="tag fixed">fixed</span></header>
@@ -255,7 +267,8 @@
     <li><span class="when">cycle 1</span><b>Foundation and projection</b><p>60Hz engine, input remapped for driving and two-sided throwing, and 288x216 because a 4:3 screen gives an angled route the vertical room it needs to telegraph hazards.</p></li>
     <li><span class="when">cycle 1</span><b>Contracts pinned</b><p>CONTRACTS.md fixed ownership, the feel targets a critic can measure, and the humour rules. art/names.js pins every sprite name AND its road-space hitbox, so gameplay and art can never disagree about how big a thing is.</p></li>
     <li><span class="when">cycle 1</span><b>Whole game built and captured</b><p>Art, driving, hazards and targets, the eight routes, and the scoring and payoff, each verified against the real running game rather than against intent.</p></li>
-    <li><span class="when">cycle 1</span><b>Autopilot regression</b><p>tools/bot.js drives every shift to the far gate. It caught the throw range mismatch immediately and now guards against any tuning change that makes a shift unclearable.</p></li></ul>
+    <li><span class="when">cycle 1</span><b>Autopilot regression</b><p>tools/bot.js drives every shift to the far gate. It caught the throw range mismatch immediately and now guards against any tuning change that makes a shift unclearable.</p></li>
+    <li><span class="when">cycle 2</span><b>Repo assembled</b><p>A browser-free verifier over the shipped data, CI running verify + playtest + capture on every push, and a Pages workflow so the play link is real. The verifier immediately found a hole in the route fairness pass and, once pointed at throw geometry, the upgrade that broke every ground delivery.</p></li></ul>
 </main>
 </body>
 </html>

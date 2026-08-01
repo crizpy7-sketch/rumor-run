@@ -50,15 +50,17 @@
       "id": "harness",
       "name": "Progress page + regression",
       "status": "done",
-      "note": "Static server, screenshot tour, this page, and an autopilot that plays all eight shifts and fails the build if one of them cannot be cleared.",
-      "round": 1
+      "note": "Static server, screenshot tour, this page, a browser-free verifier over the shipped data, an autopilot that plays all eight shifts, and CI running the lot on every push.",
+      "round": 2
     }
   ],
   "loops": [
     { "piece": "foundation", "stage": "verified", "round": 1, "note": "projection proven by capture before anything was built on it" },
     { "piece": "drive", "stage": "verified", "round": 1, "note": "throw path found broken by the first capture and fixed" },
     { "piece": "levels", "stage": "verified", "round": 1, "note": "target placement retuned against measured throw range" },
-    { "piece": "harness", "stage": "verified", "round": 1, "note": "autopilot clears every shift end to end" }
+    { "piece": "harness", "stage": "verified", "round": 1, "note": "autopilot clears every shift end to end" },
+    { "piece": "harness", "stage": "verified", "round": 2, "note": "verifier asserts route fairness and throw geometry without a browser, in 0.14s" },
+    { "piece": "meta", "stage": "verified", "round": 2, "note": "playtest now takes the most disruptive upgrade on offer, which is how HIGH LOB was caught" }
   ],
   "findings": [
     {
@@ -94,6 +96,20 @@
       "severity": "major",
       "title": "Some generated routes could not be driven",
       "detail": "Route generation could place solid hazards across the full paved width with no gap to thread, and could bury a crew's approach behind them. On one seed the autopilot failed the same shift three times with eight crashes a run, while another seed of the same shift cleared 20 of 20. Generation now runs a fairness pass: hazards that would leave less than 2.8 m of clean surface are dropped, and the outer half of a crew's own side is cleared for the 13 m run-up.",
+      "status": "fixed"
+    },
+    {
+      "piece": "meta",
+      "severity": "major",
+      "title": "One upgrade quietly broke the whole game",
+      "detail": "HIGH LOB raises the throw arc, and a raised arc sails clean over a crew whose catch window has a low ceiling. Taking it meant every ground delivery for the rest of the run passed above every crew's head: the autopilot threw 19 sheets on a shift and landed none of them. Because upgrade offers are random, it only reproduced in some sessions. Ground crews now have a catch window tall enough to take a lob, HIGH LOB is capped at one copy, and the playtest deliberately takes the most disruptive upgrade on offer rather than whatever the cursor was on.",
+      "status": "fixed"
+    },
+    {
+      "piece": "levels",
+      "severity": "major",
+      "title": "The fairness pass had a hole it could not see",
+      "detail": "The first version of the drivable-line pass checked each hazard only against those already placed behind it, so a hazard that was fine against its predecessors and fine against its successors could still be lethal with both at once. The verifier asserts the property from both directions and found 13 walled-off routes across 64 seeds. Generation now repairs until the property actually holds, dropping whichever member of the tightest wall opens it up most.",
       "status": "fixed"
     },
     {
@@ -139,6 +155,11 @@
       "at": "cycle 1",
       "label": "Autopilot regression",
       "detail": "tools/bot.js drives every shift to the far gate. It caught the throw range mismatch immediately and now guards against any tuning change that makes a shift unclearable."
+    },
+    {
+      "at": "cycle 2",
+      "label": "Repo assembled",
+      "detail": "A browser-free verifier over the shipped data, CI running verify + playtest + capture on every push, and a Pages workflow so the play link is real. The verifier immediately found a hole in the route fairness pass and, once pointed at throw geometry, the upgrade that broke every ground delivery."
     }
   ]
 }

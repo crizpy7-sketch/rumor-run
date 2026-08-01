@@ -237,7 +237,7 @@ export function createUpgradeScene(game, levelIndex) {
         drawText(ctx, l, x + cardW / 2, y + 34 + li * 9, { color: '#b9b19a', align: 'center' }));
 
       const owned = game.stats.owned.filter((o) => o === u.id).length;
-      for (let k = 0; k < 3; k++) {
+      for (let k = 0; k < (u.max ?? 3); k++) {
         ctx.fillStyle = k < owned ? LIME : '#3a3640';
         ctx.fillRect(x + cardW / 2 - 8 + k * 6, y + 64, 4, 4);
       }
@@ -249,7 +249,16 @@ export function createUpgradeScene(game, levelIndex) {
     }
   }
 
-  return { update, render, name: 'upgrade' };
+  // `offers` and `select` are exposed so the harness can choose deliberately
+  // instead of taking whatever happens to be under the cursor.
+  return {
+    update,
+    render,
+    name: 'upgrade',
+    offers,
+    get index() { return index; },
+    select(i) { index = Math.max(0, Math.min(offers.length - 1, i)); },
+  };
 }
 
 // --- the payoff ----------------------------------------------------------

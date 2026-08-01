@@ -122,7 +122,9 @@ export const UPGRADES = [
   { id: 'eye',   name: 'SPOTTER',      desc: 'HAZARDS FLAG EARLIER',   apply: (s) => { s.spotter += 12; } },
   { id: 'loop',  name: 'LOUD MOUTH',   desc: 'COMBO HOLDS LONGER',     apply: (s) => { s.comboHold += 1.1; } },
   { id: 'luck',  name: 'SUPPLY LINE',  desc: 'MORE PAPER CRATES',      apply: (s) => { s.crateBonus += 0.5; } },
-  { id: 'loft',  name: 'HIGH LOB',     desc: 'SHEETS FLY HIGHER',      apply: (s) => { s.loft += 0.45; } },
+  // Capped at one: the arc is already at the ceiling of what a crew on the
+  // ground can catch, and a second helping would throw clean over everyone.
+  { id: 'loft',  name: 'HIGH LOB',     desc: 'SHEETS FLY HIGHER',      max: 1, apply: (s) => { s.loft += 0.45; } },
 ];
 
 export function baseStats() {
@@ -144,7 +146,7 @@ export function baseStats() {
 
 /** Three upgrades the player has not already taken. */
 export function offerUpgrades(rng, stats, count = 3) {
-  const pool = UPGRADES.filter((u) => stats.owned.filter((o) => o === u.id).length < 3);
+  const pool = UPGRADES.filter((u) => stats.owned.filter((o) => o === u.id).length < (u.max ?? 3));
   return rng.shuffled(pool).slice(0, count);
 }
 
@@ -262,48 +264,71 @@ export function buildRoute(level, seedSalt = '') {
 const BUGGY_W = FOOTPRINTS.buggy.lt;
 const MIN_GAP = 2.8;        // metres of clean road a buggy needs to thread
 const APPROACH = 13;        // metres of run-up a delivery needs
+const CLUSTER = 4.5;        // hazards this close read as one wall
+
+/** Widest run of clean paved road left by a set of hazards, in metres. */
+export function widestGap(hazards) {
+  const spans = hazards
+    .map((h) => {
+      const half = (FOOTPRINTS[h.kind].lt + BUGGY_W) / 2;
+      return [h.t - half, h.t + half];
+    })
+    .sort((a, b) => a[0] - b[0]);
+
+  let widest = 0;
+  let cursor = -ROAD.halfW;
+  for (const [a, b] of spans) {
+    if (a > cursor) widest = Math.max(widest, a - cursor);
+    cursor = Math.max(cursor, b);
+  }
+  return Math.max(widest, ROAD.halfW - cursor);
+}
 
 /**
  * A random route is not automatically a fair one. Two passes fix that:
  *
- *  1. Never let solid hazards close the road. Walking the route in order, a
- *     hazard is dropped if adding it would leave less than MIN_GAP of clean
- *     surface anywhere across the paved width.
+ *  1. Never let solid hazards close the road. A hazard within CLUSTER metres of
+ *     others forms one wall, and every wall must leave MIN_GAP of clean surface
+ *     somewhere across the paved width. Note this looks *both ways* along the
+ *     route: checking only backwards misses the case where a hazard is fine
+ *     against its predecessors and fine against its successors, but lethal with
+ *     both at once.
  *  2. Keep the delivery line open. The outer half of a crew's own side is
  *     cleared for the length of the run-up, so a throw is always *possible* —
  *     taking it is still the player's problem.
  */
 function makeFair(hazards, targets) {
-  const kept = [];
-  for (const h of hazards) {
-    if (h.def.decal) { kept.push(h); continue; } // flat hazards punish, they do not block
-    const near = kept.filter((k) => !k.def.decal && Math.abs(k.s - h.s) < 4.5).concat([h]);
-    const spans = near
-      .map((k) => {
-        const half = (FOOTPRINTS[k.kind].lt + BUGGY_W) / 2;
-        return [k.t - half, k.t + half];
-      })
-      .sort((a, b) => a[0] - b[0]);
+  let kept = hazards.slice();
 
-    let widest = 0;
-    let cursor = -ROAD.halfW;
-    for (const [a, b] of spans) {
-      if (a > cursor) widest = Math.max(widest, a - cursor);
-      cursor = Math.max(cursor, b);
+  // Repair until the property holds, always dropping whichever member of the
+  // tightest wall opens it up most.
+  for (let guard = 0; guard < 400; guard++) {
+    const solid = kept.filter((h) => !h.def.decal); // flat hazards punish, they do not block
+    let tightest = null;
+    for (const h of solid) {
+      const wall = solid.filter((k) => Math.abs(k.s - h.s) < CLUSTER);
+      const gap = widestGap(wall);
+      if (gap < MIN_GAP && (!tightest || gap < tightest.gap)) tightest = { wall, gap };
     }
-    widest = Math.max(widest, ROAD.halfW - cursor);
-    if (widest >= MIN_GAP) kept.push(h);
+    if (!tightest) break;
+
+    let best = null;
+    for (const candidate of tightest.wall) {
+      const opened = widestGap(tightest.wall.filter((k) => k !== candidate));
+      if (!best || opened > best.opened) best = { candidate, opened };
+    }
+    kept = kept.filter((h) => h !== best.candidate);
   }
 
-  const clear = new Set();
+  const blocked = new Set();
   for (const tg of targets) {
     const side = Math.sign(tg.t) || 1;
     for (const h of kept) {
       if (h.s < tg.s - APPROACH || h.s > tg.s + 2) continue;
-      if (Math.sign(h.t) === side && Math.abs(h.t) > 1.6) clear.add(h);
+      if (Math.sign(h.t) === side && Math.abs(h.t) > 1.6) blocked.add(h);
     }
   }
-  return kept.filter((h) => !clear.has(h));
+  return kept.filter((h) => !blocked.has(h));
 }
 
 function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }

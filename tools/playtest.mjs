@@ -13,10 +13,10 @@ import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serve } from './serve.mjs';
+import { launchOptions } from './browser.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const OUT = join(ROOT, 'shots', 'rr-playtest');
-const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium';
 const PORT = 8141;
 
 const args = process.argv.slice(2);
@@ -26,7 +26,7 @@ const wantShots = args.includes('--shots');
 async function main() {
   if (wantShots) { await rm(OUT, { recursive: true, force: true }); await mkdir(OUT, { recursive: true }); }
   const { server } = await serve(PORT);
-  const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+  const browser = await chromium.launch(launchOptions());
   const page = await browser.newPage({ viewport: { width: 576, height: 432 } });
 
   const errors = [];
@@ -78,6 +78,7 @@ async function main() {
 
   const results = [];
   const attempts = new Map();
+  const kit = [];
   for (let i = 0; i < levelCount * 3; i++) {
     if (results.filter((r) => r.passed).length >= levelCount) break;
     if (!await pushTo('brief')) break;
@@ -110,12 +111,33 @@ async function main() {
       `${passed ? 'PASS' : 'FAIL'}`,
     );
 
-    // Results -> upgrade -> next brief.
+    // Results -> stores -> next brief. Driven as a loop over whatever screen is
+    // actually in front of us: tapping a fixed number of times raced with the
+    // screens' input guards and blew straight through the stores.
     await pushTo('results', 20);
-    await tap('confirm');
-    await frames(20);
-    const next = await scene();
-    if (next === 'upgrade') { await tap('confirm'); await frames(20); }
+    for (let guard = 0; guard < 30; guard++) {
+      const here = await scene();
+      if (here === 'brief' || here === 'ending' || here === 'run') break;
+      if (here === 'upgrade') {
+        // Take the most dangerous thing on offer first. HIGH LOB changes the
+        // shape of every throw for the rest of the run, so a playtest that
+        // never picks it never tests the game most people end up playing.
+        const took = await page.evaluate((order) => {
+          const s = window.RUMOR_RUN.scene;
+          let best = 0;
+          for (let i = 0; i < s.offers.length; i++) {
+            const rank = order.indexOf(s.offers[i].id);
+            const bestRank = order.indexOf(s.offers[best].id);
+            if (rank >= 0 && (bestRank < 0 || rank < bestRank)) best = i;
+          }
+          s.select(best);
+          return s.offers[best].id;
+        }, ['loft', 'arm', 'turbo', 'grip', 'rack', 'guard', 'eye', 'loop', 'luck']);
+        if (took) kit.push(took);
+      }
+      await tap('confirm');
+      await frames(16);
+    }
     if (await scene() === 'ending') break;
     if (!passed && tries >= 3) {
       errors.push(`shift ${level.id} (${level.name}) not clearable: 3 attempts, best ${
@@ -130,6 +152,7 @@ async function main() {
     fps: Math.round(fps * 10) / 10,
     timeScale: speed,
     seed,
+    kit,
     levels: results,
     errors,
     // Every shift has to be clearable; retries within a shift are allowed.

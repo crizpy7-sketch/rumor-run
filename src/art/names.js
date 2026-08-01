@@ -33,14 +33,15 @@ export const FOOTPRINTS = {
   sandpile: foot(2.4, 2.4, { zh: 1.2 }),
 
   // --- targets ---------------------------------------------------------
-  // Crews stand on scaffolds, so their hitbox starts above the ground: a flat
-  // throw sails under them and only a lofted sheet lands.
-  crew: foot(1.6, 1.6, { z0: 0.2, zh: 2.0 }),
-  // Sits above the top of a flat throw's arc, so reaching a scaffold means
-  // getting closer than you would for a crew on the ground.
+  // Catch windows are deliberately tall for anyone standing on the ground: they
+  // can reach up. A short ceiling here means a lobbed sheet sails over their
+  // heads and the HIGH LOB upgrade silently breaks every ground delivery.
+  crew: foot(1.6, 1.6, { z0: 0.2, zh: 3.4 }),
+  // Starts above the ground, so reaching a scaffold means getting closer than
+  // you would for a crew standing in the mud.
   scaffoldCrew: foot(1.8, 1.8, { z0: 1.6, zh: 2.4 }),
-  foreman: foot(1.4, 1.4, { z0: 0.2, zh: 2.0 }),
-  teaHut: foot(3.0, 2.6, { z0: 0.6, zh: 2.0 }),
+  foreman: foot(1.4, 1.4, { z0: 0.2, zh: 3.4 }),
+  teaHut: foot(3.0, 2.6, { z0: 0.6, zh: 3.4 }),
 
   // --- pickups ---------------------------------------------------------
   crate: foot(1.4, 1.4, { zh: 1.0 }),
