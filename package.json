@@ -1,0 +1,16 @@
+{
+  "name": "rumor-run",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deliver the rumors. Dodge the drama. Pick up Bomba.",
+  "type": "module",
+  "scripts": {
+    "start": "node tools/serve.mjs",
+    "shoot": "node tools/shoot.mjs",
+    "playtest": "node tools/playtest.mjs",
+    "progress": "node tools/rr-progress.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

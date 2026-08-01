@@ -1,0 +1,144 @@
+{
+  "tagline": "Deliver the rumors. Dodge the drama. Pick up Bomba. An original arcade game: Federico drives a site buggy along an angled jobsite route throwing gossip at scaffold crews, while the rumor mutates on its way to Bomba.",
+  "cycle": 1,
+  "playUrl": "https://crizpy7-sketch.github.io/rumor-run/",
+  "playLabel": "crizpy7-sketch.github.io/rumor-run",
+  "build": { "commit": "pending", "at": "", "fps": 0, "errors": 0 },
+  "pieces": [
+    {
+      "id": "foundation",
+      "name": "Foundation + projection",
+      "status": "done",
+      "note": "60Hz fixed-step loop, action-named input with edge detection, seeded RNG, road-space projection with per-row surface scan, sprite + footprint registry, capture harness, procedural soundtrack."
+    },
+    {
+      "id": "art",
+      "name": "Art",
+      "status": "done",
+      "note": "Hand-authored pixel art: ground, buggy with steer and wreck frames, cast, the obstacle catalogue, targets, fx, UI chrome, plus a 5x7 font shared with this page.",
+      "round": 1
+    },
+    {
+      "id": "drive",
+      "name": "Buggy feel + throwing",
+      "status": "done",
+      "note": "Speed-scaled steering authority, roll-on throttle, off-road drag, crash and recover with invulnerability, two-sided throwing plus a nearest-target assist, sheets on a real ballistic arc.",
+      "round": 1
+    },
+    {
+      "id": "hazards",
+      "name": "Hazards + targets",
+      "status": "done",
+      "note": "Twelve hazard kinds across six harm types, 30-frame telegraphing on everything that moves, near-miss detection, four target kinds with hit-quality tiers, 80+ barks.",
+      "round": 1
+    },
+    {
+      "id": "levels",
+      "name": "Levels 1-8 + spawner",
+      "status": "done",
+      "note": "Eight themed shifts, deterministic route generation from a seed, escalating hazard mix and speed caps, the rumour chain threaded through all of them.",
+      "round": 1
+    },
+    {
+      "id": "meta",
+      "name": "Score, upgrades, Bomba payoff",
+      "status": "done",
+      "note": "Quality x combo scoring, near misses, nine upgrades offered three at a time, HUD, brief/results/stores screens, and the far-gate ending that replays the whole chain.",
+      "round": 1
+    },
+    {
+      "id": "harness",
+      "name": "Progress page + regression",
+      "status": "done",
+      "note": "Static server, screenshot tour, this page, and an autopilot that plays all eight shifts and fails the build if one of them cannot be cleared.",
+      "round": 1
+    }
+  ],
+  "loops": [
+    { "piece": "foundation", "stage": "verified", "round": 1, "note": "projection proven by capture before anything was built on it" },
+    { "piece": "drive", "stage": "verified", "round": 1, "note": "throw path found broken by the first capture and fixed" },
+    { "piece": "levels", "stage": "verified", "round": 1, "note": "target placement retuned against measured throw range" },
+    { "piece": "harness", "stage": "verified", "round": 1, "note": "autopilot clears every shift end to end" }
+  ],
+  "findings": [
+    {
+      "piece": "drive",
+      "severity": "major",
+      "title": "Nobody could throw anything",
+      "detail": "The throw gate tested `buggy.cooldown <= 0`, but the field was never initialised, so the comparison was `undefined <= 0` — false forever. Every throw in the game was silently swallowed. The first capture tour caught it: sheets never appeared and the delivery counter stayed on zero through a full route.",
+      "status": "fixed"
+    },
+    {
+      "piece": "levels",
+      "severity": "major",
+      "title": "Crews stood outside throwing range",
+      "detail": "Targets were placed 10.1-12.1 m off the centre line against a base throw range of 8 m, so most deliveries were geometrically impossible even with the buggy hugging the kerb. Crews moved in to 9.3-10.9 m and the base range went to 10 m, which makes the near side comfortable and the far side a decision.",
+      "status": "fixed"
+    },
+    {
+      "piece": "meta",
+      "severity": "major",
+      "title": "Every delivery scored as a whisper",
+      "detail": "Hit quality was measured where the sheet happened to be on the frame contact was detected — which is always the edge of the hitbox — so the autopilot landed 15 deliveries in a row and every one of them graded as the worst tier. Quality now comes from the throw's closest approach to the crew, solved from the sheet's velocity. Bullseyes went from 0 per shift to 11.",
+      "status": "fixed"
+    },
+    {
+      "piece": "hazards",
+      "severity": "major",
+      "title": "Scaffold crews were unreachable",
+      "detail": "Crews on scaffolds had a hitbox starting 2.4 m up while a sheet's arc peaked at 1.76 m. Every scaffold delivery from level 5 onward was geometrically impossible. The arc now peaks at 2.09 m and the scaffold hitbox starts at 1.6 m, so reaching one means getting closer than you would for a crew on the ground — a real distinction instead of an impossible one.",
+      "status": "fixed"
+    },
+    {
+      "piece": "levels",
+      "severity": "major",
+      "title": "Some generated routes could not be driven",
+      "detail": "Route generation could place solid hazards across the full paved width with no gap to thread, and could bury a crew's approach behind them. On one seed the autopilot failed the same shift three times with eight crashes a run, while another seed of the same shift cleared 20 of 20. Generation now runs a fairness pass: hazards that would leave less than 2.8 m of clean surface are dropped, and the outer half of a crew's own side is cleared for the 13 m run-up.",
+      "status": "fixed"
+    },
+    {
+      "piece": "meta",
+      "severity": "minor",
+      "title": "Combos could not chain",
+      "detail": "The combo held for 2.6 s while crews sit about three seconds apart at cruise, so the meter reset between every delivery and never passed x2. Raised to 4.2 s: a clean shift now runs to x14.",
+      "status": "fixed"
+    },
+    {
+      "piece": "foundation",
+      "severity": "major",
+      "title": "The road would have rendered as a staircase",
+      "detail": "Drawing the surface as one axis-aligned rect per metre stairsteps the diagonal edges. The projection is instead inverted per screen row, so the road centre on row y is a closed form and the edges land on exact positions. Designed in from the start and documented in road.js rather than discovered late.",
+      "status": "fixed"
+    }
+  ],
+  "comparisons": [],
+  "galleries": [
+    {
+      "title": "The standard tour",
+      "dir": "shots/rr-tour",
+      "note": "Every screen the game has, captured from the real running build by tools/shoot.mjs: attract loop, brief, the route, a crash, results, the stores, and the payoff at the far gate."
+    }
+  ],
+  "timeline": [
+    {
+      "at": "cycle 1",
+      "label": "Foundation and projection",
+      "detail": "60Hz engine, input remapped for driving and two-sided throwing, and 288x216 because a 4:3 screen gives an angled route the vertical room it needs to telegraph hazards."
+    },
+    {
+      "at": "cycle 1",
+      "label": "Contracts pinned",
+      "detail": "CONTRACTS.md fixed ownership, the feel targets a critic can measure, and the humour rules. art/names.js pins every sprite name AND its road-space hitbox, so gameplay and art can never disagree about how big a thing is."
+    },
+    {
+      "at": "cycle 1",
+      "label": "Whole game built and captured",
+      "detail": "Art, driving, hazards and targets, the eight routes, and the scoring and payoff, each verified against the real running game rather than against intent."
+    },
+    {
+      "at": "cycle 1",
+      "label": "Autopilot regression",
+      "detail": "tools/bot.js drives every shift to the far gate. It caught the throw range mismatch immediately and now guards against any tuning change that makes a shift unclearable."
+    }
+  ]
+}
