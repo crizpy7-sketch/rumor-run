@@ -72,3 +72,9 @@ different jobsite, `--levels <n>` to stop early.
 Both browser tools use `CHROME_PATH` if set, the preinstalled Chromium at
 `/opt/pw-browsers/chromium` if it exists, and otherwise whatever Playwright
 downloaded. CI in `.github/workflows/checks.yml` runs all of it on every push.
+
+## Publishing
+
+GitHub Pages serves this repository's root from `main`, so merging publishes
+the game at <https://crizpy7-sketch.github.io/rumor-run/>. There is nothing to
+build — `index.html` and `src/` are the site.
