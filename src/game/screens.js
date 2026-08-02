@@ -68,14 +68,20 @@ export function createTitleScene(game) {
     drawText(ctx, 'DELIVER THE RUMORS. DODGE THE DRAMA.', VIEW_W / 2, 99, { color: PAPER, align: 'center' });
     drawText(ctx, 'PICK UP BOMBA.', VIEW_W / 2, 108, { color: LIME, align: 'center' });
 
-    panel(ctx, 32, 140, VIEW_W - 64, 46, 0.68);
-    drawText(ctx, 'ARROWS / WASD  DRIVE', VIEW_W / 2, 144, { color: '#b9b19a', align: 'center' });
-    drawText(ctx, 'Q OR Z  THROW LEFT', VIEW_W / 2, 154, { color: '#b9b19a', align: 'center' });
-    drawText(ctx, 'E OR X  THROW RIGHT', VIEW_W / 2, 164, { color: '#b9b19a', align: 'center' });
-    drawText(ctx, 'SPACE  THROW NEAREST', VIEW_W / 2, 174, { color: '#b9b19a', align: 'center' });
+    // A phone player has no Q key; tell them about the controls they have.
+    const help = game.touch
+      ? ['ARROW PADS  STEER', 'THROW BUTTONS  LEFT / RIGHT', 'SLOW  EASE OFF THE GAS',
+         'THE THROTTLE HOLDS ITSELF']
+      : ['ARROWS / WASD  DRIVE', 'Q OR Z  THROW LEFT', 'E OR X  THROW RIGHT',
+         'SPACE  THROW NEAREST'];
+    panel(ctx, 20, 140, VIEW_W - 40, 46, 0.68);
+    help.forEach((line, i) => {
+      drawText(ctx, line, VIEW_W / 2, 144 + i * 10, { color: '#b9b19a', align: 'center' });
+    });
 
     if (Math.floor(time * 2) % 2 === 0) {
-      drawText(ctx, 'PRESS ENTER TO CLOCK IN', VIEW_W / 2, 196, { color: GOLD, align: 'center', shadow: INK });
+      drawText(ctx, game.touch ? 'TAP TO CLOCK IN' : 'PRESS ENTER TO CLOCK IN',
+        VIEW_W / 2, 196, { color: GOLD, align: 'center', shadow: INK });
     }
   }
 

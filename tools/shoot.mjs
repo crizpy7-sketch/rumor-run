@@ -6,6 +6,7 @@
 //
 //   node tools/shoot.mjs            # the standard tour
 //   node tools/shoot.mjs --level 6  # jump straight into one shift
+//   node tools/shoot.mjs --mobile   # phone viewport, on-screen controls
 //
 // Shots land in shots/rr-tour/ and the report in shots/rr-tour/report.json.
 
@@ -17,11 +18,13 @@ import { serve } from './serve.mjs';
 import { launchOptions } from './browser.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const OUT = join(ROOT, 'shots', 'rr-tour');
 const PORT = 8137;
 
 const args = process.argv.slice(2);
 const levelArg = args.includes('--level') ? Number(args[args.indexOf('--level') + 1]) : null;
+const mobile = args.includes('--mobile');
+
+const OUT = join(ROOT, 'shots', mobile ? 'rr-mobile' : 'rr-tour');
 
 const shots = [];
 const errors = [];
@@ -32,7 +35,11 @@ async function main() {
   const { server } = await serve(PORT);
 
   const browser = await chromium.launch(launchOptions());
-  const page = await browser.newPage({ viewport: { width: 576, height: 432 } });
+  const page = await browser.newPage(mobile
+    // A mid-size phone, with touch actually enabled — otherwise the game
+    // never turns the on-screen controls on and the shots prove nothing.
+    ? { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 3 }
+    : { viewport: { width: 576, height: 432 } });
 
   page.on('pageerror', (err) => errors.push(String(err.stack || err)));
   page.on('console', (msg) => {
@@ -42,9 +49,12 @@ async function main() {
   await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
   await page.waitForFunction('window.RUMOR_RUN && window.RUMOR_RUN.version === 1', { timeout: 10000 });
 
-  const shot = async (name, note) => {
+  const shot = async (name, note, full = false) => {
     const file = join(OUT, `${String(shots.length + 1).padStart(2, '0')}-${name}.png`);
-    await page.locator('#screen').screenshot({ path: file });
+    // Mobile shots capture the whole page: the on-screen controls are the
+    // point, and they live outside the canvas.
+    if (full) await page.screenshot({ path: file });
+    else await page.locator('#screen').screenshot({ path: file });
     shots.push({ name, note, file: file.replace(ROOT, '') });
   };
 
@@ -64,6 +74,97 @@ async function main() {
   const hold = (action) => page.evaluate((a) => window.RUMOR_RUN.input.press(a), action);
   const letGo = (action) => page.evaluate((a) => window.RUMOR_RUN.input.release(a), action);
   const sceneName = () => page.evaluate(() => window.RUMOR_RUN.scene.name);
+
+  // --- mobile tour ------------------------------------------------------
+  // Screenshots alone would not prove a phone can play this, so every step
+  // also asserts the game actually responded to the touch.
+  if (mobile) {
+    const state = () => page.evaluate(() => {
+      const s = window.RUMOR_RUN.scene;
+      const bar = document.getElementById('touch');
+      const box = document.getElementById('screen').getBoundingClientRect();
+      return {
+        scene: s.name,
+        t: s.buggy ? s.buggy.t : null,
+        sheets: s.run ? s.run.sheets : null,
+        speed: s.buggy ? s.buggy.speed : null,
+        controlsShown: !!bar && getComputedStyle(bar).display !== 'none',
+        controlsHeight: bar ? bar.getBoundingClientRect().height : 0,
+        canvasW: box.width,
+        canvasH: box.height,
+        viewW: window.innerWidth,
+        viewH: window.innerHeight,
+      };
+    });
+    const hold = (action, on) => page.locator(`[data-action="${action}"]`)
+      .dispatchEvent(on ? 'pointerdown' : 'pointerup');
+
+    await frames(90);
+    const title = await state();
+    if (!title.controlsShown || title.controlsHeight < 40) {
+      errors.push(`on-screen controls missing on a touch device (shown=${title.controlsShown}, h=${title.controlsHeight})`);
+    }
+    // The old build scaled to a 288px stamp on a 390px phone; require the
+    // picture to actually use the width it has.
+    if (title.canvasW < title.viewW * 0.9) {
+      errors.push(`canvas only ${Math.round(title.canvasW)}px wide on a ${title.viewW}px screen`);
+    }
+    await shot('m-title', 'portrait: title with the on-screen controls', true);
+
+    await page.locator('#stage').tap();
+    await frames(40);
+    if (await sceneName() !== 'brief') errors.push('tapping the picture did not start the game');
+    await shot('m-brief', 'portrait: shift brief, advanced by tapping', true);
+
+    await page.locator('#stage').tap();
+    await frames(60);
+    if (await sceneName() !== 'run') errors.push('tapping the brief did not start the route');
+
+    // Steering: hold the right pad and check the buggy actually moves.
+    const before = await state();
+    await hold('right', true);
+    await frames(45);
+    await hold('right', false);
+    const steered = await state();
+    if (!(steered.t > before.t + 0.8)) {
+      errors.push(`steer button did not move the buggy (t ${before.t?.toFixed(2)} -> ${steered.t?.toFixed(2)})`);
+    }
+    // The throttle should hold itself: no thumb is spare for it.
+    if (!(steered.speed > 6)) errors.push(`auto-throttle not engaged (speed ${steered.speed})`);
+    await shot('m-run', 'portrait: driving, throttle held automatically', true);
+
+    // Throwing: a tap should cost exactly one sheet.
+    const preThrow = await state();
+    await hold('throwRight', true);
+    await frames(3);
+    await hold('throwRight', false);
+    await frames(20);
+    const postThrow = await state();
+    if (!(postThrow.sheets === preThrow.sheets - 1)) {
+      errors.push(`throw button did not throw (sheets ${preThrow.sheets} -> ${postThrow.sheets})`);
+    }
+    await shot('m-throw', 'portrait: a sheet away, thrown from the touch button', true);
+
+    // Landscape: controls float over the corners and the road gets the height.
+    await page.setViewportSize({ width: 844, height: 390 });
+    await frames(60);
+    const land = await state();
+    if (land.canvasH < land.viewH * 0.85) {
+      errors.push(`landscape wastes height: canvas ${Math.round(land.canvasH)}px of ${land.viewH}px`);
+    }
+    await shot('m-landscape', 'landscape: controls float, the route gets the height', true);
+
+    const fpsM = await page.evaluate(() => window.RUMOR_RUN.fps);
+    await writeFile(join(OUT, 'report.json'), `${JSON.stringify({
+      at: new Date().toISOString(), mode: 'mobile', fps: Math.round(fpsM * 10) / 10, errors, shots,
+    }, null, 2)}\n`);
+    await browser.close();
+    server.close();
+    console.log(`mobile shots: ${shots.length}  fps: ${Math.round(fpsM)}  errors: ${errors.length}`);
+    for (const e of errors) console.log(`  ! ${e.split('\n')[0]}`);
+    if (errors.length) process.exitCode = 1;
+    return;
+  }
 
   // --- title ------------------------------------------------------------
   await frames(90);

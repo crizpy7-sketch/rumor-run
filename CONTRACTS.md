@@ -69,6 +69,9 @@ These are the numbers a critic should measure, and the capture harness reports:
   speed, ~1.9 s.
 - Every shift is clearable by the autopilot in `tools/bot.js`. A level the bot
   cannot clear is a bug, not a difficulty setting.
+- Playable on a phone, in both orientations, with no keyboard: the picture uses
+  the full width it is given, and every control is a thumb-sized on-screen
+  target. `node tools/shoot.mjs --mobile` asserts all of it.
 
 ## Scoring
 

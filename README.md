@@ -24,6 +24,13 @@ node tools/serve.mjs        # http://localhost:8123
 | Space | throw at the nearest crew |
 | P | pause · M mute |
 
+On a phone or tablet the game switches to on-screen controls by itself: two
+steer pads, a slow button, and a throw button per side. The throttle holds
+itself there — no thumb is spare for it — and tapping the picture is "confirm",
+so the menus need no button of their own. Portrait stacks the picture over a
+control deck like a handheld; landscape floats the buttons onto the letterbox
+bars either side of the 4:3 picture, clear of the road.
+
 Clear a shift by delivering to the quota of crews before the gate. Hit quality
 matters: a sheet on the chest is a bullseye and scores 2.5×, one that lands at
 their feet is a whisper and garbles the story. Combos build across consecutive
@@ -54,6 +61,7 @@ npm test                       # data checks, no browser, under a second
 node tools/playtest.mjs        # autopilot plays all eight shifts -> shots/playtest.json
 node tools/shoot.mjs           # screenshot tour of every screen -> shots/rr-tour/
 node tools/shoot.mjs --level 6 # start the tour on a given shift
+node tools/shoot.mjs --mobile  # phone viewport + real touch -> shots/rr-mobile/
 node tools/rr-progress.mjs     # build progress/rumor-run.html from the results
 npm run check                  # all four, in order
 ```

@@ -99,6 +99,13 @@
       "status": "fixed"
     },
     {
+      "piece": "harness",
+      "severity": "major",
+      "title": "Shipped unplayable on a phone",
+      "detail": "Input was keyboard-only, so a touchscreen had literally no way to steer or throw, and the canvas floored its scale to an integer with a minimum of 1x, leaving a 288px picture adrift on a 390px phone. Neither the capture tour nor the autopilot could see it: both drove the game through synthetic key events at a desktop viewport. Reported by the player, not the harness. Fixed with on-screen controls mapped onto the same named actions the keyboard uses, fractional scaling below 2x, a handheld layout in portrait and letterbox-floating controls in landscape. The capture tour now has a --mobile mode that runs at a phone viewport with touch enabled and asserts the controls appear, the picture fills the width, the steer button moves the buggy and the throw button costs a sheet.",
+      "status": "fixed"
+    },
+    {
       "piece": "meta",
       "severity": "major",
       "title": "One upgrade quietly broke the whole game",
@@ -133,6 +140,11 @@
       "title": "The standard tour",
       "dir": "shots/rr-tour",
       "note": "Every screen the game has, captured from the real running build by tools/shoot.mjs: attract loop, brief, the route, a crash, results, the stores, and the payoff at the far gate."
+    },
+    {
+      "title": "On a phone",
+      "dir": "shots/rr-mobile",
+      "note": "A 390x844 viewport with touch actually enabled, driven through the on-screen controls. Portrait stacks the picture over a control deck; landscape floats the buttons onto the letterbox bars. Every shot here is backed by an assertion that the touch did something."
     }
   ],
   "timeline": [

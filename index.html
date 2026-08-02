@@ -2,45 +2,163 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Rumor Run</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23171418'/%3E%3Crect x='3' y='6' width='10' height='6' fill='%23ffd24a'/%3E%3Crect x='2' y='11' width='3' height='3' fill='%23efe4c4'/%3E%3Crect x='11' y='11' width='3' height='3' fill='%23efe4c4'/%3E%3C/svg%3E">
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: dark; --pad-bottom: 0px; }
   html, body {
     margin: 0; height: 100%;
     background: #141317;
     overflow: hidden;
+    overscroll-behavior: none;
     font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
+  body { touch-action: none; }
+
   #stage {
-    position: fixed; inset: 0;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    bottom: var(--pad-bottom);
     display: grid; place-items: center;
-    background:
-      radial-gradient(120% 90% at 50% 0%, #26242c 0%, #141317 70%);
+    background: radial-gradient(120% 90% at 50% 0%, #26242c 0%, #141317 70%);
   }
   canvas {
     image-rendering: pixelated;
     image-rendering: crisp-edges;
     display: block;
+    touch-action: none;
     box-shadow: 0 0 0 2px #26242c, 0 18px 60px rgba(0,0,0,.75);
   }
+
+  /* --- touch controls -------------------------------------------------- */
+  /* Hidden until main.js decides this is a touch device. */
+  #touch { display: none; }
+  body.touch #touch {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    gap: 8px;
+    padding: 8px;
+    padding-left: calc(8px + env(safe-area-inset-left));
+    padding-right: calc(8px + env(safe-area-inset-right));
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    background: #101015;
+    border-top: 2px solid #26242c;
+    touch-action: none;
+    z-index: 5;
+  }
+  .cluster { display: flex; gap: 8px; flex: 1; }
+  .cluster.right { justify-content: flex-end; }
+
+  .btn {
+    flex: 1;
+    min-width: 56px;
+    min-height: 68px;
+    display: grid; place-items: center;
+    border: 2px solid #4a4550;
+    border-radius: 8px;
+    background: #26242c;
+    color: #efe4c4;
+    font: 600 11px/1.25 ui-monospace, Menlo, Consolas, monospace;
+    letter-spacing: .1em;
+    text-align: center;
+    text-transform: uppercase;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+  }
+  .btn .glyph { font-size: 22px; line-height: 1; }
+  .btn.throw { border-color: #8a6410; color: #ffd24a; }
+  .btn.brake { flex: 0 0 62px; border-color: #6b2f22; color: #ff6a3d; }
+  .btn:active, .btn.on {
+    background: #ffd24a; color: #171418; border-color: #fdf6e0;
+  }
+  .btn.throw:active, .btn.throw.on { background: #ffd24a; color: #171418; }
+  .btn.brake:active, .btn.brake.on { background: #ff6a3d; color: #171418; }
+
+  /* Portrait: a phone is far taller than a 4:3 picture, so stack it like a
+     handheld — screen up top, a big control deck filling everything below.
+     Anything else leaves two dead black bands and tiny buttons. */
+  @media (orientation: portrait) {
+    body.touch {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;   /* picture and deck centred as one unit */
+      background: radial-gradient(120% 60% at 50% 30%, #26242c 0%, #141317 70%);
+    }
+    body.touch #stage {
+      position: static;
+      flex: 0 0 auto;
+      background: none;
+    }
+    body.touch #touch {
+      position: static;
+      flex: 0 0 auto;
+      background: none;
+      border-top: 0;
+      padding-top: 14px;
+    }
+    /* Thumb-sized, not screen-sized: stretching these to fill a tall phone
+       makes 260px columns that look broken and are no easier to hit. */
+    body.touch .btn { min-height: 0; height: clamp(76px, 13vh, 112px); }
+  }
+
+  /* Landscape: float the clusters over the picture instead of stealing
+     the vertical space the road needs. */
+  @media (orientation: landscape) {
+    body.touch #touch {
+      background: none;
+      border-top: 0;
+      pointer-events: none;
+      padding-bottom: calc(6px + env(safe-area-inset-bottom));
+    }
+    body.touch .btn {
+      pointer-events: auto;
+      opacity: .86;
+      min-height: 58px;
+      max-width: 84px;
+    }
+    /* Push the clusters right out to the edges so they sit on the letterbox
+       bars either side of a 4:3 picture, not on top of the road. */
+    body.touch .cluster { flex: 0 0 auto; }
+    body.touch .cluster.right { margin-left: auto; }
+  }
+
   #boot {
     position: fixed; inset: 0;
     display: grid; place-items: center;
     color: #ffd24a; font-size: 13px; letter-spacing: .18em;
     text-transform: uppercase;
+    padding: 20px; text-align: center;
   }
   #boot.gone { display: none; }
   #boot .err {
     max-width: 60ch; color: #ff6a3d; text-transform: none;
-    letter-spacing: 0; white-space: pre-wrap; line-height: 1.5;
+    letter-spacing: 0; white-space: pre-wrap; line-height: 1.5; text-align: left;
   }
 </style>
 </head>
 <body>
   <div id="stage"><canvas id="screen" width="288" height="216"></canvas></div>
+
+  <div id="touch" aria-hidden="true">
+    <div class="cluster left">
+      <button class="btn" data-action="left" aria-label="Steer left"><span class="glyph">&#9664;</span></button>
+      <button class="btn" data-action="right" aria-label="Steer right"><span class="glyph">&#9654;</span></button>
+    </div>
+    <button class="btn brake" data-action="brake" aria-label="Brake">Slow</button>
+    <div class="cluster right">
+      <button class="btn throw" data-action="throwLeft" aria-label="Throw left">Throw<br>&#9664;</button>
+      <button class="btn throw" data-action="throwRight" aria-label="Throw right">Throw<br>&#9654;</button>
+    </div>
+  </div>
+
   <div id="boot">loading the route&hellip;</div>
+
   <script type="module">
     const boot = document.getElementById('boot');
     window.addEventListener('error', (e) => {

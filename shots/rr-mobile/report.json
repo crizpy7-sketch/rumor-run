@@ -1,0 +1,33 @@
+{
+  "at": "2026-08-02T00:12:50.788Z",
+  "mode": "mobile",
+  "fps": 52.1,
+  "errors": [],
+  "shots": [
+    {
+      "name": "m-title",
+      "note": "portrait: title with the on-screen controls",
+      "file": "shots/rr-mobile/01-m-title.png"
+    },
+    {
+      "name": "m-brief",
+      "note": "portrait: shift brief, advanced by tapping",
+      "file": "shots/rr-mobile/02-m-brief.png"
+    },
+    {
+      "name": "m-run",
+      "note": "portrait: driving, throttle held automatically",
+      "file": "shots/rr-mobile/03-m-run.png"
+    },
+    {
+      "name": "m-throw",
+      "note": "portrait: a sheet away, thrown from the touch button",
+      "file": "shots/rr-mobile/04-m-throw.png"
+    },
+    {
+      "name": "m-landscape",
+      "note": "landscape: controls float, the route gets the height",
+      "file": "shots/rr-mobile/05-m-landscape.png"
+    }
+  ]
+}
