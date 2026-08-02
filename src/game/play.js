@@ -700,6 +700,16 @@ export function createRunScene(game, levelIndex) {
       });
     }
 
+    // Landmarks first in the list — they are far off the shoulder and tall, so
+    // they need a generous cull margin or they pop in at the edge of frame.
+    for (const lm of route.landmarks) {
+      if (!road.isVisible(lm.s, 70)) continue;
+      const x = road.projectX(lm.s, lm.t);
+      const y = road.projectY(lm.s, lm.t);
+      if (x < -120 || x > VIEW_W + 120) continue;
+      push(lm.s, () => drawSprite(ctx, lm.kind, x, y, { ax: 0.5, ay: 1 }));
+    }
+
     for (const sc of route.scenery) {
       if (!road.isVisible(sc.s, 24)) continue;
       const x = road.projectX(sc.s, sc.t);

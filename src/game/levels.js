@@ -203,6 +203,7 @@ export function buildRoute(level, seedSalt = '') {
   const hazards = [];
   const pickups = [];
   const scenery = [];
+  const landmarks = [];
 
   const startS = 70;
   const endS = level.length - 60;
@@ -273,6 +274,25 @@ export function buildRoute(level, seedSalt = '') {
     });
   }
 
+  // The GCS job itself, running down one side of the road for the whole
+  // shift. Always the left, so the site reads as one continuous place rather
+  // than scattered buildings.
+  for (let s = 40; s < level.length + 80; s += rng.range(165, 300)) {
+    landmarks.push({
+      kind: 'gcsBuilding',
+      s: Math.round(s),
+      t: -(ROAD.edge + rng.range(11, 15)),
+    });
+  }
+  // Scaffold towers fill the gaps between the blocks.
+  for (let s = 95; s < level.length + 40; s += rng.range(75, 145)) {
+    landmarks.push({
+      kind: 'scaffoldTower',
+      s: Math.round(s),
+      t: -(ROAD.edge + rng.range(4.5, 8.5)),
+    });
+  }
+
   // Set dressing well off the route.
   for (let s = 0; s < level.length + 40; s += rng.range(16, 40)) {
     const sd = rng.chance(0.5) ? 1 : -1;
@@ -288,12 +308,14 @@ export function buildRoute(level, seedSalt = '') {
   hazards.sort(sortS);
   pickups.sort(sortS);
   scenery.sort(sortS);
+  landmarks.sort(sortS);
 
   return {
     targets,
     hazards: makeFair(hazards, targets),
     pickups,
     scenery,
+    landmarks,
     length: level.length,
     chaos: level.chaos,
   };

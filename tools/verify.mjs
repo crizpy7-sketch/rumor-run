@@ -60,6 +60,10 @@ for (const [kind, def] of Object.entries(TARGETS)) {
 for (const kind of SCENERY) {
   check(!!ART[kind], `scenery "${kind}" has no sprite`);
 }
+for (const kind of ['gcsBuilding', 'scaffoldTower']) {
+  check(!!ART[kind], `landmark "${kind}" has no sprite`);
+  check(!!FOOTPRINTS[kind], `landmark "${kind}" has no footprint pinned`);
+}
 for (const [kind, def] of Object.entries(POWERUPS)) {
   check(!!ART[def.sprite], `power up "${kind}" draws missing sprite "${def.sprite}"`);
   check(!!FOOTPRINTS[def.sprite], `power up "${kind}" has no footprint`);

@@ -81,6 +81,10 @@ export const FOOTPRINTS = {
   cooler: foot(0.9, 1.2, { zh: 0.6 }),
   toolbox: foot(0.9, 1.2, { zh: 0.6 }),
   bomba: foot(1.2, 1.2, { zh: 2.0 }),
+  // Landmarks. They sit far off the shoulder, so nothing ever tests these
+  // against the cart — the footprint exists so the registry stays complete.
+  gcsBuilding: foot(16.0, 18.0, { zh: 24.0 }),
+  scaffoldTower: foot(5.0, 5.0, { zh: 16.0 }),
   super: foot(1.2, 1.2, { zh: 2.0 }),
 };
 
@@ -99,6 +103,7 @@ export const SPRITES = [
   'signStay', 'signCaution', 'fence', 'floodlight', 'portaloo', 'cooler', 'toolbox',
   'puSpeed', 'puPapers', 'puVest', 'puConfusion', 'puBomba',
   'sheet', 'puff', 'spark', 'star', 'arrow', 'splash',
+  'gcsBuilding', 'scaffoldTower',
 ];
 
 export function footprintOf(name) {

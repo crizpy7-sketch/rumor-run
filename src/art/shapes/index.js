@@ -9,6 +9,7 @@ import { VEHICLES } from './vehicles.js';
 import { MATERIAL } from './material.js';
 import { PROPS } from './props.js';
 import { PICKUPS } from './pickups.js';
+import { STRUCTURES } from './structures.js';
 
 export const SHAPES = {
   ...HERO,
@@ -17,4 +18,5 @@ export const SHAPES = {
   ...MATERIAL,
   ...PROPS,
   ...PICKUPS,
+  ...STRUCTURES,
 };
