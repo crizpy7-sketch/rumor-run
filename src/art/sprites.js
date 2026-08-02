@@ -325,30 +325,6 @@ ART.bomba = mk(16,
   '..kkkkkkkkkkkk',
 );
 
-ART.bombaThumb = mk(18,
-  '......kkkk',
-  '....kkCCCCkk',
-  '...kCCCCCCCCk',
-  '..kkkkkkkkkkkk',
-  '....keeeeeek',
-  '....kkkkkkkk',
-  '....keeeeeek',
-  '....khhhhhhk',
-  '.....khhhhk...kk',
-  '...kooooooook.kek',
-  '..koooooooooookek',
-  '..koWWooooWWokeek',
-  '..kooooooooookeek',
-  '..kooooooooookkek',
-  '...kooooooook.kkk',
-  '...kvvvvvvvvk',
-  '...kvvvvvvvvk',
-  '...kvvvkkvvvk',
-  '...kvvvkkvvvk',
-  '...kvvvkkvvvk',
-  '...kkkkkkkkkk',
-  '..kkkkkkkkkkkk',
-);
 
 // --- scaffold material -----------------------------------------------------
 
@@ -917,9 +893,9 @@ function recolor(rows, map) {
   return rows.map((row) => row.replace(/./g, (ch) => map[ch] || ch));
 }
 
-ART.cartLeft = steer(ART.cart, -1);
-ART.cartRight = steer(ART.cart, 1);
-ART.cartWreck = recolor(steer(ART.cart, 1), { m: 'G', M: 'H', n: 'g', N: 'g', o: 'R' });
+// cartLeft / cartRight / cartWreck are drawn as real leaning poses in
+// src/art/shapes/hero.js — a sheared copy of the straight frame was always a
+// stand-in for art that did not exist yet.
 
 // Hard-hat and vest swaps give a site full of different people for free.
 const hatYellow = { C: 'y' };

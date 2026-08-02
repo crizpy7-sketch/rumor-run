@@ -14,21 +14,22 @@ import { serve } from './serve.mjs';
 import { launchOptions } from './browser.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const PORT = 8155;
+const PORT = 0;
 const SCALE = 4;
 
 const args = process.argv.slice(2);
 const only = args.includes('--only') ? args[args.indexOf('--only') + 1].split(',') : null;
+const out = args.includes('--out') ? args[args.indexOf('--out') + 1] : 'shots/art-sheet.png';
 
 async function main() {
   await mkdir(join(ROOT, 'shots'), { recursive: true });
-  const { server } = await serve(PORT);
+  const { server, port } = await serve(PORT);
   const browser = await chromium.launch(launchOptions());
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
 
-  await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
+  await page.goto(`http://localhost:${port}/index.html`, { waitUntil: 'load' });
   await page.waitForFunction('window.RUMOR_RUN', { timeout: 10000 });
 
   const size = await page.evaluate(async ({ scale, only: want }) => {
@@ -82,12 +83,12 @@ async function main() {
     return total;
   }, { scale: SCALE, only });
 
-  const file = join(ROOT, 'shots', 'art-sheet.png');
+  const file = join(ROOT, out);
   await page.locator('#artsheet').screenshot({ path: file });
   await browser.close();
   server.close();
 
-  console.log(`art sheet -> shots/art-sheet.png (${size.w}x${size.h})  errors ${errors.length}`);
+  console.log(`art sheet -> ${out} (${size.w}x${size.h})  errors ${errors.length}`);
   for (const e of errors) console.log(`  ! ${e}`);
   if (errors.length) process.exitCode = 1;
 }
