@@ -8,6 +8,8 @@
 // Sprites are baked to offscreen canvases on first use, and the bake validates
 // the rows, so a mistake fails at boot rather than a level in.
 
+import { GENERATED } from './generated.js';
+
 export const PAL = {
   k: '#14121a', // ink / outline
   d: '#241f2c', // dark cloth, caps
@@ -892,6 +894,13 @@ ART.splash = mk(14,
   '.uubbbbuu',
   '..uuuuuu',
 );
+
+// --- compiled vector art ---------------------------------------------------
+// Anything in src/art/shapes.js is drawn with real curves and quantised onto
+// this palette by tools/genart.mjs. Those versions win: a hand-typed grid
+// cannot make a round wheel or a domed hard hat, and where both exist the
+// drawn one is strictly better.
+for (const [name, rows] of Object.entries(GENERATED)) ART[name] = rows;
 
 // --- derived sprites -------------------------------------------------------
 

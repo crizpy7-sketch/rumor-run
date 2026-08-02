@@ -47,6 +47,7 @@ metre — that is what keeps the diagonal edges clean instead of stepped.
 | --- | --- |
 | Engine | `src/engine/*` — loop, input, audio, rng |
 | Art | `src/art/*` — sprites, font, and the sprite/footprint registry |
+| Vector art | `src/art/shapes.js` drawn with curves, compiled to `generated.js` |
 | Projection | `src/game/road.js` |
 | Route data | `src/game/levels.js` |
 | Driving, throwing, collisions, scoring | `src/game/play.js` |

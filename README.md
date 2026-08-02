@@ -42,7 +42,9 @@ stores.
 ```
 index.html          boot + canvas
 src/engine/         loop (fixed 60Hz), input, procedural audio, seeded rng
-src/art/            pixel sprites, 5x7 font, the sprite/footprint registry
+src/art/shapes.js   vector sources — curves, arcs, gradients
+src/art/generated.js compiled pixel rows (generated, do not hand-edit)
+src/art/            hand-authored sprites, 5x7 font, sprite/footprint registry
 src/game/road.js    road-space projection and the per-row surface scan
 src/game/play.js    driving, throwing, collisions, scoring
 src/game/levels.js  the eight shifts, the catalogue, route generation
@@ -62,9 +64,18 @@ node tools/playtest.mjs        # autopilot plays all eight shifts -> shots/playt
 node tools/shoot.mjs           # screenshot tour of every screen -> shots/rr-tour/
 node tools/shoot.mjs --level 6 # start the tour on a given shift
 node tools/shoot.mjs --mobile  # phone viewport + real touch -> shots/rr-mobile/
+node tools/genart.mjs          # compile src/art/shapes.js -> src/art/generated.js
+node tools/artsheet.mjs        # every sprite at 4x -> shots/art-sheet.png
 node tools/rr-progress.mjs     # build progress/rumor-run.html from the results
 npm run check                  # all four, in order
 ```
+
+Art comes from two places. Small props are hand-authored grids; anything that
+needs a curve — a wheel, a hard hat dome, a tapering cone — is drawn with real
+geometry in `src/art/shapes.js` and compiled down onto the palette by
+`tools/genart.mjs`. The compiled rows are committed, so the node verifier can
+check them and there is no cost at runtime. `tools/artsheet.mjs` is how the art
+gets looked at: a 22px sprite cannot be judged from a gameplay screenshot.
 
 `tools/verify.mjs` asserts properties of the shipped data: the font and sprites
 are well formed, every sprite gameplay can draw is pinned with a footprint, no

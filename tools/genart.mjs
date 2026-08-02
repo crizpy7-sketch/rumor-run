@@ -1,0 +1,154 @@
+// Vector -> pixel art compiler.
+//
+//   node tools/genart.mjs
+//
+// Renders every entry in src/art/shapes.js with real curves at 8x, box-filters
+// it down to the target size, and snaps each pixel to the nearest palette
+// colour. The output is written to src/art/generated.js as ordinary sprite rows,
+// so everything downstream — validation, flipping, tinting, recolouring, the
+// contact sheet — treats these identically to hand-authored art.
+//
+// Committing the generated rows rather than rasterising at boot keeps the art
+// checkable by the node verifier and free at runtime.
+
+import { chromium } from 'playwright';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { serve } from './serve.mjs';
+import { launchOptions } from './browser.mjs';
+
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const PORT = 8161;
+const SS = 8;            // supersampling factor
+const ALPHA_CUT = 0.45;  // below this a pixel is transparent
+
+// Variants generated from the same vector source with different inputs.
+const VARIANTS = {
+  worker: [
+    ['worker', {}],
+    ['workerY', { hat: 'y' }],
+    ['workerO', { hat: 'o' }],
+    ['workerDark', { hat: 'y', skin: 'e', skinShade: 'E' }],
+    ['workerOrangeVest', { vest: 'o' }],
+  ],
+  workerCheer: [
+    ['workerCheer', {}],
+    ['workerCheerY', { hat: 'y' }],
+    ['workerCheerO', { hat: 'o', skin: 'e', skinShade: 'E' }],
+  ],
+  cart: [['cart', {}]],
+  bomba: [['bomba', {}]],
+  cone: [['cone', {}]],
+  barrel: [['barrel', {}]],
+};
+
+async function main() {
+  const { server } = await serve(PORT);
+  const browser = await chromium.launch(launchOptions());
+  const page = await browser.newPage({ viewport: { width: 400, height: 300 } });
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e.stack || e)));
+
+  await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
+
+  const out = await page.evaluate(async ({ ss, alphaCut, variants }) => {
+    const { SHAPES } = await import('/src/art/shapes.js');
+    const { PAL } = await import('/src/art/sprites.js');
+
+    // Palette as RGB, once.
+    const keys = Object.keys(PAL);
+    const rgb = keys.map((k) => {
+      const h = PAL[k];
+      return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+    });
+    const nearest = (r, g, b) => {
+      let best = 0;
+      let bestD = Infinity;
+      for (let i = 0; i < rgb.length; i++) {
+        // Weighted to human luminance response so shading ramps quantise the
+        // way an eye would group them, not the way raw euclidean RGB does.
+        const dr = (r - rgb[i][0]) * 0.5;
+        const dg = (g - rgb[i][1]) * 0.7;
+        const db = (b - rgb[i][2]) * 0.3;
+        const d = dr * dr + dg * dg + db * db;
+        if (d < bestD) { bestD = d; best = i; }
+      }
+      return keys[best];
+    };
+
+    const result = {};
+    for (const [shapeName, list] of Object.entries(variants)) {
+      const shape = SHAPES[shapeName];
+      if (!shape) throw new Error(`no shape "${shapeName}"`);
+      for (const [outName, opt] of list) {
+        const cv = document.createElement('canvas');
+        cv.width = shape.w * ss;
+        cv.height = shape.h * ss;
+        const ctx = cv.getContext('2d');
+        ctx.scale(ss, ss);
+        // Resolve palette-key options to colours for the shape code.
+        const resolved = {};
+        for (const [k, v] of Object.entries(opt)) resolved[k] = PAL[v] || v;
+        shape.draw(ctx, PAL, resolved);
+
+        const img = ctx.getImageData(0, 0, cv.width, cv.height).data;
+        const rows = [];
+        for (let y = 0; y < shape.h; y++) {
+          let row = '';
+          for (let x = 0; x < shape.w; x++) {
+            // Box-filter the supersampled block, premultiplied so edges do not
+            // bleed the colour of transparent pixels into the average.
+            let r = 0; let g = 0; let b = 0; let a = 0;
+            for (let sy = 0; sy < ss; sy++) {
+              for (let sx = 0; sx < ss; sx++) {
+                const i = (((y * ss + sy) * cv.width) + (x * ss + sx)) * 4;
+                const al = img[i + 3] / 255;
+                r += img[i] * al; g += img[i + 1] * al; b += img[i + 2] * al; a += al;
+              }
+            }
+            const n = ss * ss;
+            if (a / n < alphaCut) { row += '.'; continue; }
+            row += nearest(r / a, g / a, b / a);
+          }
+          rows.push(row);
+        }
+        result[outName] = rows;
+      }
+    }
+    return result;
+  }, { ss: SS, alphaCut: ALPHA_CUT, variants: VARIANTS });
+
+  await browser.close();
+  server.close();
+
+  if (errors.length) {
+    for (const e of errors) console.error(`  ! ${e.split('\n')[0]}`);
+    process.exit(1);
+  }
+
+  const body = Object.entries(out)
+    .map(([name, rows]) => `  ${name}: [\n${rows.map((r) => `    '${r}',`).join('\n')}\n  ],`)
+    .join('\n');
+
+  const file = `// GENERATED by tools/genart.mjs — do not edit by hand.
+//
+// Vector sources live in src/art/shapes.js. Regenerate with:
+//
+//   node tools/genart.mjs
+//
+// These are ordinary sprite rows, palette-locked, so everything downstream
+// treats them exactly like hand-authored art.
+
+export const GENERATED = {
+${body}
+};
+`;
+  await writeFile(join(ROOT, 'src/art/generated.js'), file);
+
+  const names = Object.keys(out);
+  console.log(`generated ${names.length} sprites -> src/art/generated.js`);
+  console.log(`  ${names.join(', ')}`);
+}
+
+main().catch((err) => { console.error(err); process.exit(1); });
