@@ -687,6 +687,19 @@ export function createRunScene(game, levelIndex) {
 
     renderList.length = 0;
 
+    // A wet pour did not appear on its own: park the truck that made it on the
+    // shoulder, so the hazard has a cause you can see coming.
+    for (const h of route.hazards) {
+      if (h.kind !== 'concretePour' || !road.isVisible(h.s, 20)) continue;
+      const side = h.t >= 0 ? 1 : -1;
+      const mt = side * (ROAD.edge + 3.4);
+      push(h.s + 2, () => {
+        road.shadow(ctx, h.s + 2, mt, 26);
+        drawSprite(ctx, 'mixer', road.projectX(h.s + 2, mt), road.projectY(h.s + 2, mt),
+          { ax: 0.5, ay: 1, flip: side < 0 });
+      });
+    }
+
     for (const sc of route.scenery) {
       if (!road.isVisible(sc.s, 24)) continue;
       const x = road.projectX(sc.s, sc.t);

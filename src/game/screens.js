@@ -79,9 +79,9 @@ export function drawTrailer(ctx, x, y, w = 96, h = 46) {
   ctx.fillRect(left + w - 16, top + h, 8, 5);
   // A sign by the door.
   ctx.fillStyle = PAL.k;
-  ctx.fillRect(left + 4, top + h - 12, 26, 9);
+  ctx.fillRect(left + 4, top + h - 13, 30, 11);
   ctx.fillStyle = PAL.y;
-  ctx.fillRect(left + 5, top + h - 11, 24, 7);
+  ctx.fillRect(left + 5, top + h - 12, 28, 9);
   drawText(ctx, 'SITE', left + 7, top + h - 10, { color: INK });
 }
 
@@ -147,6 +147,7 @@ export function createTitleScene(game) {
     drawText(ctx, 'RUMOR', VIEW_W / 2, 42, { color: GOLD, align: 'center', scale: 4, shadow: INK });
     drawText(ctx, 'RUN', VIEW_W / 2, 76, { color: PAPER, align: 'center', scale: 4, shadow: INK });
 
+    panel(ctx, 60, 114, VIEW_W - 120, 42, 0.72);
     drawText(ctx, 'DELIVER THE RUMORS.', VIEW_W / 2, 118, { color: PAPER, align: 'center', shadow: INK });
     drawText(ctx, 'DODGE THE DRAMA.', VIEW_W / 2, 130, { color: EMBER, align: 'center', shadow: INK });
     drawText(ctx, 'PICK UP BOMBA.', VIEW_W / 2, 142, { color: LIME, align: 'center', shadow: INK });

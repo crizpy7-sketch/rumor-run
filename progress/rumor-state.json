@@ -1,9 +1,14 @@
 {
-  "tagline": "Deliver the rumors. Dodge the drama. Pick up Bomba. An original arcade game: Federico drives a site buggy along an angled jobsite route throwing gossip at scaffold crews, while the rumor mutates on its way to Bomba.",
-  "cycle": 1,
+  "tagline": "Deliver the rumors. Dodge the drama. Pick up Bomba. An original arcade game: Federico drives a site cart along an angled jobsite route throwing gossip at the crews, dodging eighteen kinds of obstacle, while the rumor mutates on its way to Bomba at the trailer office.",
+  "cycle": 3,
   "playUrl": "https://crizpy7-sketch.github.io/rumor-run/",
   "playLabel": "crizpy7-sketch.github.io/rumor-run",
-  "build": { "commit": "pending", "at": "", "fps": 0, "errors": 0 },
+  "build": {
+    "commit": "pending",
+    "at": "",
+    "fps": 0,
+    "errors": 0
+  },
   "pieces": [
     {
       "id": "foundation",
@@ -15,8 +20,8 @@
       "id": "art",
       "name": "Art",
       "status": "done",
-      "note": "Hand-authored pixel art: ground, buggy with steer and wreck frames, cast, the obstacle catalogue, targets, fx, UI chrome, plus a 5x7 font shared with this page.",
-      "round": 1
+      "note": "Rebuilt at 384x288 against the concept sheet: the cream site cart with Federico silhouetted against a shadowed cab, an outlined crew base with palette-swapped hats and vests, Bomba as a person, the superintendent, all six scaffold materials, the heavy equipment, five power ups, and a trailer office drawn rather than stamped.",
+      "round": 2
     },
     {
       "id": "drive",
@@ -29,8 +34,8 @@
       "id": "hazards",
       "name": "Hazards + targets",
       "status": "done",
-      "note": "Twelve hazard kinds across six harm types, 30-frame telegraphing on everything that moves, near-miss detection, four target kinds with hit-quality tiers, 80+ barks.",
-      "round": 1
+      "note": "The sheet's own eighteen: scaffold material, crew who stand in front of it, and machines that do not look where they are going \u2014 each with the line the site shouts at you.",
+      "round": 2
     },
     {
       "id": "levels",
@@ -43,8 +48,8 @@
       "id": "meta",
       "name": "Score, upgrades, Bomba payoff",
       "status": "done",
-      "note": "Quality x combo scoring, near misses, nine upgrades offered three at a time, HUD, brief/results/stores screens, and the far-gate ending that replays the whole chain.",
-      "round": 1
+      "note": "Quality x combo scoring, near misses, the five named power ups, nine upgrades, HUD with live fuel timers, and the trailer-office payoff where Bomba hands back a fresh rumour.",
+      "round": 2
     },
     {
       "id": "harness",
@@ -55,19 +60,63 @@
     }
   ],
   "loops": [
-    { "piece": "foundation", "stage": "verified", "round": 1, "note": "projection proven by capture before anything was built on it" },
-    { "piece": "drive", "stage": "verified", "round": 1, "note": "throw path found broken by the first capture and fixed" },
-    { "piece": "levels", "stage": "verified", "round": 1, "note": "target placement retuned against measured throw range" },
-    { "piece": "harness", "stage": "verified", "round": 1, "note": "autopilot clears every shift end to end" },
-    { "piece": "harness", "stage": "verified", "round": 2, "note": "verifier asserts route fairness and throw geometry without a browser, in 0.14s" },
-    { "piece": "meta", "stage": "verified", "round": 2, "note": "playtest now takes the most disruptive upgrade on offer, which is how HIGH LOB was caught" }
+    {
+      "piece": "foundation",
+      "stage": "verified",
+      "round": 1,
+      "note": "projection proven by capture before anything was built on it"
+    },
+    {
+      "piece": "drive",
+      "stage": "verified",
+      "round": 1,
+      "note": "throw path found broken by the first capture and fixed"
+    },
+    {
+      "piece": "levels",
+      "stage": "verified",
+      "round": 1,
+      "note": "target placement retuned against measured throw range"
+    },
+    {
+      "piece": "harness",
+      "stage": "verified",
+      "round": 1,
+      "note": "autopilot clears every shift end to end"
+    },
+    {
+      "piece": "harness",
+      "stage": "verified",
+      "round": 2,
+      "note": "verifier asserts route fairness and throw geometry without a browser, in 0.14s"
+    },
+    {
+      "piece": "meta",
+      "stage": "verified",
+      "round": 2,
+      "note": "playtest now takes the most disruptive upgrade on offer, which is how HIGH LOB was caught"
+    }
   ],
   "findings": [
+    {
+      "piece": "art",
+      "severity": "major",
+      "title": "The hero sprite was a cream blob for three iterations",
+      "detail": "Federico's cart was drawn in the same cream as its own roof, so the driver was invisible and the whole vehicle read as a box. Gameplay screenshots are far too small to diagnose a 22px sprite, so this survived several passes. Fixed by building tools/artsheet.mjs, which renders every sprite at 4x on a checkerboard: the problem was obvious in one look, and the fix \u2014 a shadowed cab for Federico to silhouette against, plus heavy outlines on the whole cast the way the concept sheet has them \u2014 took minutes once it could be seen.",
+      "status": "fixed"
+    },
+    {
+      "piece": "levels",
+      "severity": "minor",
+      "title": "A rolling pipe could wall off the road on its own",
+      "detail": "The wind-blown pipe was given a 3.6m footprint on an 11m road, so a single one near the centre left 2.77m of clean surface against a 2.8m minimum \u2014 not threadable by a 2m cart. The route verifier caught it on one seed in sixty-four. Narrowed to 3.0m and biased away from the centre line.",
+      "status": "fixed"
+    },
     {
       "piece": "drive",
       "severity": "major",
       "title": "Nobody could throw anything",
-      "detail": "The throw gate tested `buggy.cooldown <= 0`, but the field was never initialised, so the comparison was `undefined <= 0` — false forever. Every throw in the game was silently swallowed. The first capture tour caught it: sheets never appeared and the delivery counter stayed on zero through a full route.",
+      "detail": "The throw gate tested `buggy.cooldown <= 0`, but the field was never initialised, so the comparison was `undefined <= 0` \u2014 false forever. Every throw in the game was silently swallowed. The first capture tour caught it: sheets never appeared and the delivery counter stayed on zero through a full route.",
       "status": "fixed"
     },
     {
@@ -81,14 +130,14 @@
       "piece": "meta",
       "severity": "major",
       "title": "Every delivery scored as a whisper",
-      "detail": "Hit quality was measured where the sheet happened to be on the frame contact was detected — which is always the edge of the hitbox — so the autopilot landed 15 deliveries in a row and every one of them graded as the worst tier. Quality now comes from the throw's closest approach to the crew, solved from the sheet's velocity. Bullseyes went from 0 per shift to 11.",
+      "detail": "Hit quality was measured where the sheet happened to be on the frame contact was detected \u2014 which is always the edge of the hitbox \u2014 so the autopilot landed 15 deliveries in a row and every one of them graded as the worst tier. Quality now comes from the throw's closest approach to the crew, solved from the sheet's velocity. Bullseyes went from 0 per shift to 11.",
       "status": "fixed"
     },
     {
       "piece": "hazards",
       "severity": "major",
       "title": "Scaffold crews were unreachable",
-      "detail": "Crews on scaffolds had a hitbox starting 2.4 m up while a sheet's arc peaked at 1.76 m. Every scaffold delivery from level 5 onward was geometrically impossible. The arc now peaks at 2.09 m and the scaffold hitbox starts at 1.6 m, so reaching one means getting closer than you would for a crew on the ground — a real distinction instead of an impossible one.",
+      "detail": "Crews on scaffolds had a hitbox starting 2.4 m up while a sheet's arc peaked at 1.76 m. Every scaffold delivery from level 5 onward was geometrically impossible. The arc now peaks at 2.09 m and the scaffold hitbox starts at 1.6 m, so reaching one means getting closer than you would for a crew on the ground \u2014 a real distinction instead of an impossible one.",
       "status": "fixed"
     },
     {
@@ -137,6 +186,11 @@
   "comparisons": [],
   "galleries": [
     {
+      "title": "Every sprite, magnified",
+      "dir": "shots",
+      "note": "The contact sheet from tools/artsheet.mjs \u2014 the whole ART table at 4x on a checkerboard. This is the tool that made the art iterable; before it existed, sprite defects were invisible at gameplay scale."
+    },
+    {
       "title": "The standard tour",
       "dir": "shots/rr-tour",
       "note": "Every screen the game has, captured from the real running build by tools/shoot.mjs: attract loop, brief, the route, a crash, results, the stores, and the payoff at the far gate."
@@ -172,6 +226,11 @@
       "at": "cycle 2",
       "label": "Repo assembled",
       "detail": "A browser-free verifier over the shipped data, CI running verify + playtest + capture on every push, and a Pages workflow so the play link is real. The verifier immediately found a hole in the route fairness pass and, once pointed at throw geometry, the upgrade that broke every ground delivery."
+    },
+    {
+      "at": "cycle 3",
+      "label": "Rebuilt around the concept sheet",
+      "detail": "The player sent the design sheet the game was supposed to be, and it showed real drift: Bomba was a person, not a dog; the shift ended at a trailer office, not a fence; Federico drove a cream cart. Resolution went to 384x288 because an 8px worker cannot carry a hard hat, a vest and a face. The catalogue, the power ups, the chaos tier and the ending were rebuilt to match."
     }
   ]
 }
