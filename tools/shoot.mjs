@@ -39,7 +39,9 @@ async function main() {
     // A mid-size phone, with touch actually enabled — otherwise the game
     // never turns the on-screen controls on and the shots prove nothing.
     ? { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 3 }
-    : { viewport: { width: 576, height: 432 } });
+    // An exact 2x of the 384x288 canvas, so captures show real pixels rather
+    // than a fractional resample of them.
+    : { viewport: { width: 768, height: 576 } });
 
   page.on('pageerror', (err) => errors.push(String(err.stack || err)));
   page.on('console', (msg) => {

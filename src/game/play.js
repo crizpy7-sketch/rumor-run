@@ -3,8 +3,8 @@
 import { Road, ROAD, VIEW_W, VIEW_H } from './road.js';
 import { buildRoute } from './levels.js';
 import { footprintOf } from '../art/names.js';
-import { drawSprite, spriteSize } from '../art/sprites.js';
-import { drawText } from '../art/glyphs.js';
+import { drawSprite, spriteSize, PAL } from '../art/sprites.js';
+import { drawText, textWidth } from '../art/glyphs.js';
 import { pickBark } from './rumor.js';
 import { drawHud, drawBanner } from './hud.js';
 
@@ -12,6 +12,10 @@ const GRAVITY = 9.8;
 const THROW_COOLDOWN = 0.15;
 const CRASH_TIME = 0.7;
 const INVULN_TIME = 1.1;
+
+// Crews come in three looks so a row of them does not read as one clone.
+const CREW_LOOKS = ['worker', 'workerDark', 'workerOrangeVest'];
+const CREW_CHEERS = ['workerCheer', 'workerCheerO', 'workerCheer'];
 
 export function createRunScene(game, levelIndex) {
   const level = game.levels[levelIndex];
@@ -51,7 +55,18 @@ export function createRunScene(game, levelIndex) {
     time: 0,
     finished: false,
     endTimer: 0,
+    // Power up timers.
+    shield: 0,
+    confusion: 0,
+    bombaTime: 0,
+    caught: 0,
   };
+
+  // The superintendent, on levels that have one, rolls up behind you whenever
+  // you dawdle. He never quite catches a cart at full chat.
+  const sup = level.chaos.superintendent
+    ? { s: -40, active: true, shout: 0 }
+    : null;
 
   const sheets = [];
   const fx = [];
@@ -65,7 +80,7 @@ export function createRunScene(game, levelIndex) {
   // --- helpers ----------------------------------------------------------
 
   function speedCap() {
-    let cap = level.speedCap + stats.speedBonus + (buggy.boost > 0 ? 4 : 0);
+    let cap = level.speedCap + stats.speedBonus + (buggy.boost > 0 ? 5 : 0);
     if (buggy.offRoad) cap *= 0.72;
     if (buggy.drag > 0) cap *= 0.62;
     return cap;
@@ -76,31 +91,46 @@ export function createRunScene(game, levelIndex) {
   }
 
   function floatText(text, s, t, color = '#fdf6e0', life = 1.1) {
-    fx.push({ kind: 'text', text, s, t, color, life, age: 0, rise: 14 });
+    fx.push({ kind: 'text', text, s, t, color, life, age: 0, rise: 16 });
   }
 
   function breakCombo(hard = true) {
+    if (run.bombaTime > 0) return; // Bomba time holds the chain together.
     if (run.combo > run.comboBest) run.comboBest = run.combo;
     run.combo = hard ? 0 : Math.floor(run.combo / 2);
     run.comboTimer = run.combo ? stats.comboHold : 0;
   }
 
   function comboMult() {
-    return 1 + Math.min(run.combo, 12) * 0.12;
+    return (1 + Math.min(run.combo, 12) * 0.12) * (run.bombaTime > 0 ? 2 : 1);
   }
 
-  function crash(kind) {
+  function crash(kind, source) {
     if (buggy.invuln > 0) return;
+    if (run.shield > 0) {
+      // The vest eats one hit and makes a show of it.
+      run.shield = 0;
+      buggy.invuln = INVULN_TIME;
+      buggy.speed *= 0.86;
+      shake = Math.max(shake, 4);
+      game.audio.scrape();
+      floatText('VEST HELD!', buggy.s + 3, buggy.t, '#c8e04a', 1.1);
+      addFx('spark', buggy.s, buggy.t, { life: 0.4 });
+      return;
+    }
     buggy.crashT = CRASH_TIME * (1 - Math.min(stats.guard, 0.6));
     buggy.invuln = INVULN_TIME;
     buggy.speed *= 0.34 + Math.min(stats.guard, 0.6) * 0.4;
     buggy.tvel *= -0.3;
-    shake = Math.max(shake, 6);
+    shake = Math.max(shake, 7);
     run.crashes++;
     breakCombo(true);
     game.audio.crash();
-    floatText(pickBark(rng, 'crash'), buggy.s + 3, buggy.t, '#ff6a3d', 1.5);
-    addFx('puff', buggy.s, buggy.t, { life: 0.6, big: true });
+    floatText(source || pickBark(rng, 'crash'), buggy.s + 3, buggy.t, '#ff7a3d', 1.5);
+    for (let i = 0; i < 5; i++) {
+      addFx('puff', buggy.s + rng.range(-1, 1), buggy.t + rng.range(-1, 1),
+        { life: 0.5 + rng.next() * 0.3, big: true });
+    }
     if (kind === 'soft') game.audio.miss();
   }
 
@@ -133,7 +163,7 @@ export function createRunScene(game, levelIndex) {
     game.audio.throwSheet();
     if (run.sheets <= 2 && !lowAmmoWarned) {
       lowAmmoWarned = true;
-      floatText(pickBark(rng, 'lowAmmo'), buggy.s + 4, buggy.t, '#ff6a3d', 1.6);
+      floatText(pickBark(rng, 'lowAmmo'), buggy.s + 4, buggy.t, '#ff7a3d', 1.6);
     }
   }
 
@@ -161,14 +191,16 @@ export function createRunScene(game, levelIndex) {
     const tau = vv > 0 ? clamp(-(ds * sheet.vs + dt * sheet.vt) / vv, -1, 1) : 0;
     const ms = (ds + sheet.vs * tau) / (foot.ls / 2);
     const mt = (dt + sheet.vt * tau) / (foot.lt / 2);
-    const spread = Math.hypot(ms, mt);
+    let spread = Math.hypot(ms, mt);
+    // A confused site listens harder than it should.
+    if (run.confusion > 0) spread *= 0.6;
     const quality = spread < 0.5 ? 'bullseye' : spread < 1 ? 'solid' : 'whisper';
 
     tg.hit = true;
     tg.quality = quality;
-    tg.react = 1.6;
+    tg.react = 1.8;
     tg.bark = pickBark(rng, quality === 'bullseye' ? 'bullseye' : quality === 'whisper' ? 'whisper' : 'hit');
-    tg.barkAt = 1.6;
+    tg.barkAt = 1.8;
 
     run.delivered++;
     run[quality]++;
@@ -180,11 +212,15 @@ export function createRunScene(game, levelIndex) {
     const points = Math.round(tg.def.points * qMult * comboMult());
     run.score += points;
 
-    floatText(`+${points}`, tg.s, tg.t + Math.sign(tg.t) * -1.5, quality === 'bullseye' ? '#ffd24a' : '#fdf6e0', 0.9);
-    addFx('spark', sheet.s, sheet.t, { life: 0.4, z: sheet.z });
+    floatText(`+${points}`, tg.s, tg.t + Math.sign(tg.t) * -1.5,
+      quality === 'bullseye' ? '#ffd24a' : '#fdf6e0', 0.9);
+    addFx('spark', sheet.s, sheet.t, { life: 0.45, z: sheet.z });
+    for (let i = 0; i < 3; i++) {
+      addFx('paper', sheet.s, sheet.t, { life: 0.6, z: sheet.z, vt: rng.range(-2, 2), vz: rng.range(1, 3) });
+    }
     game.audio.hit(quality);
     if (run.combo > 1 && run.combo % 3 === 0) game.audio.combo(run.combo);
-    if (tg.def.bonus) floatText('FOREMAN!', tg.s, tg.t, '#ff6a3d', 1.2);
+    if (tg.def.bonus) floatText('FOREMAN!', tg.s, tg.t, '#ff7a3d', 1.2);
   }
 
   function updateSheets(dt) {
@@ -198,7 +234,7 @@ export function createRunScene(game, levelIndex) {
 
       for (const tg of route.targets) {
         if (tg.hit) continue;
-        if (Math.abs(tg.s - sh.s) > 4) continue;
+        if (Math.abs(tg.s - sh.s) > 5) continue;
         const foot = footprintOf(tg.def.foot);
         if (Math.abs(sh.s - tg.s) > foot.ls / 2 + 0.5) continue;
         if (Math.abs(sh.t - tg.t) > foot.lt / 2 + 0.6) continue;
@@ -213,7 +249,6 @@ export function createRunScene(game, levelIndex) {
         addFx('puff', sh.s, sh.t, { life: 0.35 });
         run.misses++;
         run.comboTimer = Math.max(0, run.comboTimer - 0.8);
-        // Only heckle if a crew actually watched it land short.
         let near = null;
         for (const tg of route.targets) {
           if (tg.hit) continue;
@@ -239,7 +274,14 @@ export function createRunScene(game, levelIndex) {
 
     for (const h of route.hazards) {
       const ds = h.s - buggy.s;
-      if (ds < -14 || ds > warnAt + 40) continue;
+      if (ds < -16 || ds > warnAt + 44) continue;
+
+      // Everything with a voice says its piece as you come up on it.
+      if (!h.said && ds < 16 && ds > 0 && h.def.say && rng.chance(0.5)) {
+        h.said = true;
+        h.sayAt = 1.3;
+      }
+      if (h.sayAt > 0) h.sayAt -= dt;
 
       if (h.def.mobile && h.state === 'idle' && ds < warnAt) {
         h.state = 'warn';
@@ -251,23 +293,32 @@ export function createRunScene(game, levelIndex) {
           if (h.def.mobile === 'cross') game.audio.bark(1.6);
         }
       } else if (h.state === 'move') {
-        if (h.def.mobile === 'cross') {
-          h.t += h.dir * h.speed * dt;
-          if (Math.abs(h.t) > ROAD.halfW + 3) h.state = 'gone';
-        } else if (h.def.mobile === 'drop') {
-          h.z = (h.z ?? 6) - 14 * dt;
-          if (h.z <= 0) { h.z = 0; h.state = 'down'; shake = Math.max(shake, 3); }
-        } else if (h.def.mobile === 'roll') {
-          h.t += Math.sin(run.time * 1.4 + h.s) * 1.2 * dt;
+        switch (h.def.mobile) {
+          case 'cross':
+          case 'walk':
+            h.t += h.dir * h.speed * dt;
+            if (Math.abs(h.t) > ROAD.halfW + 4) h.state = 'gone';
+            break;
+          case 'wander':
+            // Head down, no idea where he is going.
+            h.t = h.t0 + Math.sin(run.time * 0.9 + h.phase) * 2.6;
+            break;
+          case 'swing':
+            h.t = h.t0 + Math.sin(run.time * 1.7 + h.phase) * 3.4;
+            break;
+          case 'roll':
+            h.t += Math.sin(run.time * 0.7 + h.phase) * h.speed * dt;
+            h.s -= h.speed * 0.35 * dt;
+            break;
+          default:
+            break;
         }
       }
 
       if (h.state === 'gone') continue;
-      // A pole only exists as a hazard once it has actually landed.
-      if (h.def.mobile === 'drop' && h.state !== 'down') continue;
 
-      // Collision against the buggy footprint.
-      const bf = footprintOf('buggy');
+      // Collision against the cart footprint.
+      const bf = footprintOf('cart');
       const hf = footprintOf(h.kind);
       const overlapS = Math.abs(h.s - buggy.s) < (bf.ls + hf.ls) / 2;
       const overlapT = Math.abs(h.t - buggy.t) < (bf.lt + hf.lt) / 2;
@@ -279,40 +330,42 @@ export function createRunScene(game, levelIndex) {
           h.hitBy = true;
           applyHarm(h);
         }
-      } else if (!h.nearCounted && !h.hitBy && Math.abs(h.s - buggy.s) < 1.4 && h.def.harm !== 'drag') {
+      } else if (!h.nearCounted && !h.hitBy && Math.abs(h.s - buggy.s) < 1.6 && h.def.harm !== 'drag') {
         const gap = Math.abs(h.t - buggy.t) - (bf.lt + hf.lt) / 2;
-        if (gap > 0 && gap < 0.7) {
+        if (gap > 0 && gap < 0.8) {
           h.nearCounted = true;
           run.nearMisses++;
           run.score += 25;
           run.comboTimer = Math.min(stats.comboHold, run.comboTimer + 0.3);
           game.audio.nearMiss();
-          if (rng.chance(0.4)) floatText(pickBark(rng, 'nearMiss'), h.s, h.t, '#c4e022', 0.7);
+          if (rng.chance(0.4)) floatText(pickBark(rng, 'nearMiss'), h.s, h.t, '#c8e04a', 0.7);
         }
       }
     }
   }
 
   function applyHarm(h) {
+    const shout = h.def.say;
     switch (h.def.harm) {
       case 'hard':
-        crash('hard');
+        crash('hard', shout);
         break;
       case 'soft':
-        crash('soft');
+        crash('soft', shout);
         break;
       case 'clip':
         buggy.speed *= 0.74;
         buggy.tvel *= 0.4;
-        shake = Math.max(shake, 3);
+        shake = Math.max(shake, 4);
         breakCombo(false);
         game.audio.scrape();
-        addFx('puff', h.s, h.t, { life: 0.3 });
+        addFx('puff', h.s, h.t, { life: 0.35 });
+        floatText(shout || 'OI!', h.s, h.t, '#ffd24a', 0.8);
         break;
       case 'jolt':
         buggy.speed *= 0.9;
         buggy.scatter = 1;
-        shake = Math.max(shake, 4);
+        shake = Math.max(shake, 5);
         game.audio.scrape();
         floatText('JOLT!', h.s, h.t, '#ffd24a', 0.6);
         break;
@@ -320,7 +373,8 @@ export function createRunScene(game, levelIndex) {
         buggy.slip = 0.85;
         buggy.tvel += (rng.chance(0.5) ? 1 : -1) * 3.4;
         game.audio.scrape();
-        floatText('SLIP!', h.s, h.t, '#4d86c6', 0.7);
+        addFx('splash', h.s, h.t, { life: 0.5 });
+        floatText(shout || 'SLIP!', h.s, h.t, '#7fb0e0', 0.8);
         break;
       default:
         break;
@@ -330,19 +384,34 @@ export function createRunScene(game, levelIndex) {
   function updatePickups() {
     for (const p of route.pickups) {
       if (p.taken) continue;
-      if (Math.abs(p.s - buggy.s) > 1.6 || Math.abs(p.t - buggy.t) > 1.8) continue;
+      if (Math.abs(p.s - buggy.s) > 1.8 || Math.abs(p.t - buggy.t) > 2.0) continue;
       p.taken = true;
-      if (p.kind === 'crate') {
-        run.sheets = Math.min(stats.sheetMax, run.sheets + 6);
-        lowAmmoWarned = false;
-        floatText(pickBark(rng, 'pickup'), p.s, p.t, '#c4e022', 0.9);
-      } else {
-        buggy.boost = 2.2;
-        run.score += 60;
-        floatText('TEA! +60', p.s, p.t, '#ffd24a', 0.9);
-      }
+      p.def.apply(run, buggy, stats);
+      if (p.kind === 'papers') lowAmmoWarned = false;
+      run.score += 60;
+      floatText(p.def.name, p.s, p.t, p.def.colour, 1.2);
       game.audio.pickup();
-      addFx('spark', p.s, p.t, { life: 0.35 });
+      addFx('spark', p.s, p.t, { life: 0.4 });
+    }
+  }
+
+  function updateSuper(dt) {
+    if (!sup || !sup.active) return;
+    // He closes at a steady walk-plus; only a stalled cart lets him arrive.
+    const target = buggy.s - 16;
+    sup.s += Math.max(6, buggy.speed * 0.82) * dt;
+    if (sup.s < target - 26) sup.s = target - 26;
+    if (sup.shout > 0) sup.shout -= dt;
+
+    if (sup.s > buggy.s - 3.5) {
+      sup.s = buggy.s - 22;
+      sup.shout = 2;
+      run.caught++;
+      run.score = Math.max(0, run.score - 250);
+      breakCombo(true);
+      shake = Math.max(shake, 5);
+      game.audio.sad();
+      floatText('WHERE IS MY COFFEE?!', buggy.s + 3, buggy.t, '#ff7a3d', 1.8);
     }
   }
 
@@ -389,7 +458,13 @@ export function createRunScene(game, levelIndex) {
     const wasOff = buggy.offRoad;
     buggy.offRoad = Math.abs(buggy.t) > ROAD.halfW + 0.4;
     if (buggy.offRoad && !wasOff) game.audio.scrape();
-    if (buggy.offRoad && rng.chance(0.25)) addFx('puff', buggy.s - 1, buggy.t, { life: 0.25, small: true });
+
+    // Dust off the back wheels: more of it off-road, more of it at speed.
+    const dustChance = (buggy.offRoad ? 0.5 : 0.12) * clamp(buggy.speed / 12, 0, 1);
+    if (rng.chance(dustChance)) {
+      addFx('dust', buggy.s - 1.4, buggy.t + rng.range(-0.9, 0.9),
+        { life: 0.4 + rng.next() * 0.3, drift: rng.range(-0.6, 0.6) });
+    }
 
     buggy.s += buggy.speed * dt;
     if (buggy.boost > 0) buggy.boost -= dt;
@@ -408,6 +483,10 @@ export function createRunScene(game, levelIndex) {
     run.time += dt;
     if (bannerT > 0) bannerT -= dt;
 
+    for (const key of ['shield', 'confusion', 'bombaTime']) {
+      if (run[key] > 0) run[key] = Math.max(0, run[key] - dt);
+    }
+
     if (!run.finished) {
       updateBuggy(dt);
 
@@ -420,6 +499,7 @@ export function createRunScene(game, levelIndex) {
       updateSheets(dt);
       updateHazards(dt);
       updatePickups();
+      updateSuper(dt);
 
       if (run.comboTimer > 0) {
         run.comboTimer -= dt;
@@ -448,8 +528,11 @@ export function createRunScene(game, levelIndex) {
     }
 
     for (let i = fx.length - 1; i >= 0; i--) {
-      fx[i].age += dt;
-      if (fx[i].age >= fx[i].life) fx.splice(i, 1);
+      const f = fx[i];
+      f.age += dt;
+      if (f.kind === 'dust') f.t += (f.drift || 0) * dt;
+      if (f.kind === 'paper') { f.t += (f.vt || 0) * dt; f.z = (f.z || 0) + (f.vz || 0) * dt - 4 * dt * dt; }
+      if (f.age >= f.life) fx.splice(i, 1);
     }
     for (const tg of route.targets) {
       if (tg.react > 0) tg.react -= dt;
@@ -457,12 +540,12 @@ export function createRunScene(game, levelIndex) {
     }
     if (shake > 0) shake = Math.max(0, shake - dt * 22);
 
-    game.audio.engine(clamp(buggy.speed / (level.speedCap + stats.speedBonus), 0, 1), game.input.held('gas'));
+    game.audio.engine(clamp(buggy.speed / (level.speedCap + stats.speedBonus), 0, 1), input.held('gas'));
     game.audio.setTrack({
       bpm: level.bpm,
       scale: level.scale,
       root: level.root,
-      energy: clamp(0.35 + run.combo * 0.06, 0, 1),
+      energy: clamp(0.35 + run.combo * 0.06 + (run.bombaTime > 0 ? 0.3 : 0), 0, 1),
     });
   }
 
@@ -470,62 +553,118 @@ export function createRunScene(game, levelIndex) {
 
   function push(s, fn) { renderList.push({ s, fn }); }
 
+  /** A scaffold tower, drawn rather than stamped so it can be any height. */
+  function drawScaffold(ctx, x, y, bays = 3) {
+    const w = 26;
+    const bayH = 14;
+    const left = Math.round(x - w / 2);
+    const base = Math.round(y);
+    for (let i = 0; i < bays; i++) {
+      const top = base - (i + 1) * bayH;
+      ctx.fillStyle = PAL.G;
+      ctx.fillRect(left, top, 2, bayH);
+      ctx.fillRect(left + w - 2, top, 2, bayH);
+      ctx.fillStyle = PAL.H;
+      ctx.fillRect(left, top, w, 1);
+      // Diagonal brace.
+      for (let d = 0; d < w - 3; d += 2) {
+        ctx.fillRect(left + 2 + d, top + bayH - 2 - Math.round(d * (bayH - 4) / (w - 3)), 2, 2);
+      }
+      // Plank deck.
+      ctx.fillStyle = PAL.s;
+      ctx.fillRect(left - 1, top - 2, w + 2, 3);
+      ctx.fillStyle = PAL.S;
+      ctx.fillRect(left - 1, top + 1, w + 2, 1);
+    }
+    ctx.fillStyle = PAL.k;
+    ctx.fillRect(left, base - 1, 3, 2);
+    ctx.fillRect(left + w - 3, base - 1, 3, 2);
+  }
+
   function drawTarget(tg) {
-    const foot = footprintOf(tg.def.foot);
     const x = road.projectX(tg.s, tg.t);
     const y = road.projectY(tg.s, tg.t);
-    if (x < -30 || x > VIEW_W + 30 || y < -40 || y > VIEW_H + 30) return;
+    if (x < -50 || x > VIEW_W + 50 || y < -60 || y > VIEW_H + 40) return null;
+
+    const look = tg.def.rig || tg.def.bonus || tg.def.wide
+      ? tg.def.sprite
+      : CREW_LOOKS[tg.variant % CREW_LOOKS.length];
+    const cheer = tg.def.rig || tg.def.bonus || tg.def.wide
+      ? tg.def.cheer
+      : CREW_CHEERS[tg.variant % CREW_CHEERS.length];
 
     return () => {
       const ctx = game.ctx;
       if (tg.def.rig === 'scaffold') {
-        const sc = spriteSize('scaffold');
-        drawSprite(ctx, 'scaffold', x, y, { ax: 0.5, ay: 1 });
-        const bob = tg.react > 0 ? Math.round(Math.sin(tg.react * 22) * 1) : 0;
-        drawSprite(ctx, tg.react > 0 ? 'workerCheer' : tg.def.sprite, x, y - sc.h + 4 + bob, { ax: 0.5, ay: 1 });
+        drawScaffold(ctx, x, y, 3);
+        const bob = tg.react > 0 ? Math.round(Math.sin(tg.react * 22)) : 0;
+        drawSprite(ctx, tg.react > 0 ? cheer : look, x, y - 42 + bob, { ax: 0.5, ay: 1 });
       } else if (tg.def.wide) {
-        road.shadow(ctx, tg.s, tg.t, 18);
-        drawSprite(ctx, tg.def.sprite, x, y, { ax: 0.5, ay: 1 });
-        if (tg.react > 0) drawSprite(ctx, 'workerCheer', x + 10, y - 2, { ax: 0.5, ay: 1 });
+        road.shadow(ctx, tg.s, tg.t, 22);
+        drawSprite(ctx, 'cooler', x + 14, y, { ax: 0.5, ay: 1 });
+        drawSprite(ctx, 'workerSit', x - 8, y, { ax: 0.5, ay: 1 });
+        drawSprite(ctx, tg.react > 0 ? cheer : 'workerSit', x + 4, y - 1, { ax: 0.5, ay: 1, flip: true });
       } else {
-        road.shadow(ctx, tg.s, tg.t, 8);
-        const bob = tg.react > 0 ? Math.round(Math.sin(tg.react * 24) * 1) : 0;
-        drawSprite(ctx, tg.react > 0 ? 'workerCheer' : tg.def.sprite, x, y + bob, { ax: 0.5, ay: 1 });
+        road.shadow(ctx, tg.s, tg.t, 11);
+        const bob = tg.react > 0 ? Math.round(Math.sin(tg.react * 24)) : 0;
+        drawSprite(ctx, tg.react > 0 ? cheer : look, x, y + bob, { ax: 0.5, ay: 1 });
       }
 
       if (!tg.hit) {
         // A small ear-marker so a target reads as a target at speed.
         const pulse = (Math.sin(run.time * 5 + tg.s) + 1) / 2;
-        ctx.fillStyle = pulse > 0.5 ? '#ffd24a' : '#a8760f';
-        const my = y - (tg.def.rig === 'scaffold' ? 40 : tg.def.wide ? 20 : 18);
-        ctx.fillRect(Math.round(x) - 1, Math.round(my), 3, 3);
-        ctx.fillRect(Math.round(x), Math.round(my) - 2, 1, 2);
+        ctx.fillStyle = pulse > 0.5 ? '#ffd24a' : '#8a6410';
+        const my = y - (tg.def.rig === 'scaffold' ? 66 : tg.def.wide ? 26 : 26);
+        ctx.fillRect(Math.round(x) - 2, Math.round(my), 4, 4);
+        ctx.fillRect(Math.round(x) - 1, Math.round(my) - 3, 2, 3);
       }
-      if (tg.barkAt > 0) {
-        const alpha = Math.min(1, tg.barkAt);
-        const by = y - (tg.def.rig === 'scaffold' ? 52 : 26);
-        drawBubble(ctx, tg.bark, x, by, alpha);
-      }
+      if (tg.barkAt > 0) drawBubble(ctx, tg.bark, x, y - (tg.def.rig === 'scaffold' ? 82 : 36), Math.min(1, tg.barkAt));
     };
   }
 
   function drawHazard(h) {
+    const swinging = h.def.mobile === 'swing';
     const x = road.projectX(h.s, h.t);
-    const y = road.projectY(h.s, h.t) - (h.def.mobile === 'drop' && h.state !== 'down' ? (h.z || 0) * 6 : 0);
-    if (x < -40 || x > VIEW_W + 40 || y < -50 || y > VIEW_H + 40) return null;
+    const y = road.projectY(h.s, h.t);
+    if (x < -60 || x > VIEW_W + 60 || y < -70 || y > VIEW_H + 50) return null;
 
     return () => {
       const ctx = game.ctx;
-      if (!h.def.decal) road.shadow(ctx, h.s, h.t, h.def.harm === 'hard' ? 12 : 7);
-      const flip = h.def.mobile === 'cross' && h.dir < 0;
+      if (!h.def.decal) {
+        road.shadow(ctx, h.s, h.t, h.def.harm === 'hard' ? 18 : 10, swinging ? 0.5 : 1);
+      }
+      const flip = (h.def.mobile === 'cross' || h.def.mobile === 'walk') && h.dir < 0;
+
+      if (swinging) {
+        // Hook hangs from above; draw the line up out of frame.
+        ctx.fillStyle = PAL.g;
+        ctx.fillRect(Math.round(x), 0, 1, Math.max(0, Math.round(y) - 44));
+      }
       drawSprite(ctx, h.def.sprite, x, y, { ax: 0.5, ay: h.def.decal ? 0.5 : 1, flip });
 
-      if (h.state === 'warn') {
-        const blink = Math.floor(run.time * 12) % 2 === 0;
-        if (blink) {
-          const wy = road.projectY(h.s, h.t) - 22;
-          drawSprite(ctx, 'arrow', x, wy, { ax: 0.5, ay: 1 });
-        }
+      // Crew obstacles that come as a pair or a huddle.
+      if (h.def.crowd) {
+        drawSprite(ctx, 'workerSit', x - 14, y, { ax: 0.5, ay: 1 });
+        drawSprite(ctx, 'cooler', x + 13, y, { ax: 0.5, ay: 1 });
+      }
+      if (h.def.carry) {
+        drawSprite(ctx, 'workerY', x - 16, y + 2, { ax: 0.5, ay: 1 });
+        drawSprite(ctx, 'worker', x + 16, y + 2, { ax: 0.5, ay: 1, flip: true });
+      }
+      if (h.def.spill) {
+        drawSprite(ctx, 'toolbox', x + 12, y, { ax: 0.5, ay: 1 });
+      }
+      if (h.def.tape) {
+        drawSprite(ctx, 'workerY', x + 22, y, { ax: 0.5, ay: 1, flip: true });
+        ctx.fillStyle = PAL.y;
+        ctx.fillRect(Math.round(x) + 6, Math.round(y) - 14, 16, 1);
+      }
+
+      if (h.state === 'warn' && Math.floor(run.time * 12) % 2 === 0) {
+        drawSprite(ctx, 'arrow', x, road.projectY(h.s, h.t) - 30, { ax: 0.5, ay: 1 });
+      }
+      if (h.sayAt > 0 && h.def.say && h.def.family === 'crew') {
+        drawBubble(ctx, h.def.say, x, y - 34, Math.min(1, h.sayAt));
       }
     };
   }
@@ -542,22 +681,19 @@ export function createRunScene(game, levelIndex) {
 
     // Flat decals sit on the surface, under everything else.
     for (const h of route.hazards) {
-      if (!h.def.decal) continue;
-      if (!road.isVisible(h.s)) continue;
-      const x = road.projectX(h.s, h.t);
-      const y = road.projectY(h.s, h.t);
-      drawSprite(ctx, h.def.sprite, x, y, { ax: 0.5, ay: 0.5 });
+      if (!h.def.decal || !road.isVisible(h.s)) continue;
+      drawSprite(ctx, h.def.sprite, road.projectX(h.s, h.t), road.projectY(h.s, h.t), { ax: 0.5, ay: 0.5 });
     }
 
     renderList.length = 0;
 
     for (const sc of route.scenery) {
-      if (!road.isVisible(sc.s, 20)) continue;
+      if (!road.isVisible(sc.s, 24)) continue;
       const x = road.projectX(sc.s, sc.t);
       const y = road.projectY(sc.s, sc.t);
-      if (x < -30 || x > VIEW_W + 30) continue;
+      if (x < -40 || x > VIEW_W + 40) continue;
       push(sc.s, () => {
-        road.shadow(ctx, sc.s, sc.t, 6);
+        road.shadow(ctx, sc.s, sc.t, 9);
         drawSprite(ctx, sc.kind, x, y, { ax: 0.5, ay: 1, flip: sc.t < 0 });
       });
     }
@@ -566,47 +702,63 @@ export function createRunScene(game, levelIndex) {
       if (p.taken || !road.isVisible(p.s)) continue;
       const x = road.projectX(p.s, p.t);
       const y = road.projectY(p.s, p.t);
-      const bob = Math.round(Math.sin(run.time * 4 + p.s) * 1);
+      const bob = Math.round(Math.sin(run.time * 4 + p.s) * 2);
       push(p.s, () => {
-        road.shadow(ctx, p.s, p.t, 7);
-        drawSprite(ctx, p.kind, x, y + bob, { ax: 0.5, ay: 1 });
+        road.shadow(ctx, p.s, p.t, 9);
+        // A little halo so fuel reads as fuel at speed.
+        ctx.fillStyle = 'rgba(255,210,74,0.18)';
+        ctx.fillRect(Math.round(x) - 9, Math.round(y) - 20, 18, 18);
+        drawSprite(ctx, p.def.sprite, x, y + bob, { ax: 0.5, ay: 1 });
       });
     }
 
     for (const h of route.hazards) {
-      if (h.def.decal || h.state === 'gone') continue;
-      if (!road.isVisible(h.s, 16)) continue;
+      if (h.def.decal || h.state === 'gone' || !road.isVisible(h.s, 20)) continue;
       const fn = drawHazard(h);
       if (fn) push(h.s, fn);
     }
 
     for (const tg of route.targets) {
-      if (!road.isVisible(tg.s, 24)) continue;
+      if (!road.isVisible(tg.s, 28)) continue;
       const fn = drawTarget(tg);
       if (fn) push(tg.s, fn);
     }
 
-    // The buggy.
+    if (sup && sup.active && road.isVisible(sup.s, 10)) {
+      push(sup.s, () => {
+        const x = road.projectX(sup.s, 0);
+        const y = road.projectY(sup.s, 0);
+        road.shadow(ctx, sup.s, 0, 11);
+        drawSprite(ctx, 'super', x, y, { ax: 0.5, ay: 1 });
+        if (sup.shout > 0) drawBubble(ctx, 'FEDERICO!', x, y - 36, Math.min(1, sup.shout));
+      });
+    }
+
+    // The cart.
     push(buggy.s, () => {
       const x = road.projectX(buggy.s, buggy.t);
       const y = road.projectY(buggy.s, buggy.t);
-      road.shadow(ctx, buggy.s, buggy.t, 12);
+      road.shadow(ctx, buggy.s, buggy.t, 18);
       const blink = buggy.invuln > 0 && Math.floor(run.time * 20) % 2 === 0;
       if (!blink) {
         const name = buggy.crashT > 0
-          ? 'buggyWreck'
-          : buggy.lean < -0.35 ? 'buggyLeft' : buggy.lean > 0.35 ? 'buggyRight' : 'buggy';
+          ? 'cartWreck'
+          : buggy.lean < -0.35 ? 'cartLeft' : buggy.lean > 0.35 ? 'cartRight' : 'cart';
         const jitter = buggy.crashT > 0 ? Math.round(Math.sin(run.time * 40) * 2) : 0;
         drawSprite(ctx, name, x + jitter, y, { ax: 0.5, ay: 1 });
+      }
+      if (run.shield > 0) {
+        ctx.fillStyle = `rgba(200,224,74,${0.25 + 0.15 * Math.sin(run.time * 9)})`;
+        ctx.fillRect(Math.round(x) - 14, Math.round(y) - 26, 28, 28);
       }
     });
 
     for (const sh of sheets) {
       if (!sh.alive) continue;
       const x = road.projectX(sh.s, sh.t);
-      const y = road.projectY(sh.s, sh.t) - sh.z * 7;
+      const y = road.projectY(sh.s, sh.t) - sh.z * 9;
       push(sh.s + 0.1, () => {
-        road.shadow(ctx, sh.s, sh.t, 4);
+        road.shadow(ctx, sh.s, sh.t, 5, 0.6);
         drawSprite(ctx, 'sheet', x, y, { ax: 0.5, ay: 0.5, flip: Math.floor(sh.spin) % 2 === 0 });
       });
     }
@@ -618,24 +770,32 @@ export function createRunScene(game, levelIndex) {
     for (const f of fx) {
       const k = f.age / f.life;
       const x = road.projectX(f.s, f.t);
-      const y = road.projectY(f.s, f.t) - (f.z ? f.z * 7 : 0);
+      const y = road.projectY(f.s, f.t) - (f.z ? f.z * 9 : 0);
       if (f.kind === 'text') {
-        drawText(ctx, f.text, x, y - 10 - k * f.rise, {
-          color: f.color, align: 'center', shadow: '#171418',
+        drawText(ctx, f.text, x, y - 14 - k * f.rise, {
+          color: f.color, align: 'center', shadow: '#14121a',
         });
       } else if (f.kind === 'puff') {
-        drawSprite(ctx, 'puff', x, y, {
-          ax: 0.5, ay: 0.5, alpha: 1 - k, scale: f.big ? 2 : f.small ? 1 : 1,
-        });
+        drawSprite(ctx, 'puff', x, y, { ax: 0.5, ay: 0.5, alpha: 1 - k, scale: f.big ? 1.6 : 1 });
+      } else if (f.kind === 'dust') {
+        ctx.fillStyle = `rgba(196,172,128,${0.4 * (1 - k)})`;
+        const r = 1 + k * 4;
+        ctx.fillRect(Math.round(x - r), Math.round(y - r * 0.5 - k * 6), Math.round(r * 2), Math.round(r));
+      } else if (f.kind === 'paper') {
+        ctx.fillStyle = `rgba(253,246,224,${1 - k})`;
+        ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
       } else if (f.kind === 'spark') {
         drawSprite(ctx, 'spark', x, y, { ax: 0.5, ay: 0.5, alpha: 1 - k });
+      } else if (f.kind === 'splash') {
+        drawSprite(ctx, 'splash', x, y, { ax: 0.5, ay: 0.5, alpha: 1 - k });
       }
     }
 
-    road.drawHaze(ctx);
+    road.drawWeather(ctx, 1 / 60);
+    road.drawGrade(ctx);
     ctx.restore();
 
-    drawHud(ctx, { game, level, run, buggy, route, stats });
+    drawHud(ctx, { game, level, run, buggy, route, stats, sup });
     if (bannerT > 0) drawBanner(ctx, banner, Math.min(1, bannerT));
   }
 
@@ -643,18 +803,20 @@ export function createRunScene(game, levelIndex) {
 }
 
 function drawBubble(ctx, text, x, y, alpha = 1) {
-  const w = text.length * 6 - 1;
-  const bx = Math.round(clamp(x - w / 2 - 3, 2, VIEW_W - w - 8));
+  const w = textWidth(text);
+  const bx = Math.round(clamp(x - w / 2 - 4, 3, VIEW_W - w - 11));
   const by = Math.round(y);
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.fillStyle = '#171418';
-  ctx.fillRect(bx - 1, by - 1, w + 8, 11);
+  ctx.fillStyle = '#14121a';
+  ctx.fillRect(bx - 1, by - 1, w + 10, 13);
   ctx.fillStyle = '#fdf6e0';
-  ctx.fillRect(bx, by, w + 6, 9);
-  drawText(ctx, text, bx + 3, by + 1, { color: '#171418' });
+  ctx.fillRect(bx, by, w + 8, 11);
+  drawText(ctx, text, bx + 4, by + 2, { color: '#14121a' });
   ctx.fillStyle = '#fdf6e0';
-  ctx.fillRect(Math.round(clamp(x, bx + 3, bx + w)), by + 9, 2, 2);
+  ctx.fillRect(Math.round(clamp(x, bx + 4, bx + w)), by + 11, 3, 3);
+  ctx.fillStyle = '#14121a';
+  ctx.fillRect(Math.round(clamp(x, bx + 4, bx + w)), by + 14, 3, 1);
   ctx.restore();
 }
 

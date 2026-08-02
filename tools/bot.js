@@ -80,7 +80,7 @@ window.__runBot = function runBot({ maxSeconds = 240 } = {}) {
       // Paper first: divert for a crate when running low.
       if (run.sheets <= 3) {
         for (const p of route.pickups) {
-          if (p.taken || p.kind !== 'crate') continue;
+          if (p.taken || p.kind !== 'papers') continue;
           const ds = p.s - buggy.s;
           if (ds > 2 && ds < 40) { want = p.t; break; }
         }
