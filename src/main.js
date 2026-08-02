@@ -107,11 +107,16 @@ export function start(canvas) {
     else setScene(createUpgradeScene(game, levelIndex));
   };
 
+  game.touch = setupTouch(game, canvas, input, audio);
+
   const loop = createLoop({
     update(dt) {
       if (input.hit('mute')) audio.toggleMute();
       if (input.anyHit()) audio.unlock();
       if (input.hit('pause') && game.scene && game.scene.name === 'run') game.paused = !game.paused;
+      // On a touchscreen the throttle is held for you — there is no thumb
+      // spare to hold it, and a delivery round should always be rolling.
+      if (game.touch && !input.held('gas')) input.press('gas');
       if (!game.paused) game.scene.update(dt);
       audio.tick();
       input.endFrame();
@@ -123,8 +128,11 @@ export function start(canvas) {
   });
 
   game.toTitle();
-  fit(canvas);
-  window.addEventListener('resize', () => fit(canvas));
+  const refit = () => fit(canvas, game.touch);
+  refit();
+  window.addEventListener('resize', refit);
+  window.addEventListener('orientationchange', () => setTimeout(refit, 120));
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', refit);
   loop.start();
 
   // Handle for the capture harness (tools/shoot.mjs) and for debugging.
@@ -140,13 +148,87 @@ export function start(canvas) {
   return { game, loop };
 }
 
-function fit(canvas) {
-  const scale = Math.max(1, Math.min(
-    Math.floor(window.innerWidth / VIEW_W),
-    Math.floor(window.innerHeight / VIEW_H),
-  ));
-  canvas.style.width = `${VIEW_W * scale}px`;
-  canvas.style.height = `${VIEW_H * scale}px`;
+/**
+ * Size the canvas to the viewport.
+ *
+ * Integer scales stay integer where there is room for them, because that is
+ * what keeps pixel art crisp. Below 2x we scale fractionally anyway: a phone
+ * is better served by a picture that fills the screen than by a perfectly
+ * square-pixelled postage stamp floating in black.
+ */
+function fit(canvas, touchMode = false) {
+  const portrait = window.matchMedia('(orientation: portrait)').matches;
+  const vw = (window.visualViewport?.width) || window.innerWidth;
+  const vh = (window.visualViewport?.height) || window.innerHeight;
+  document.documentElement.style.setProperty('--pad-bottom', '0px');
+
+  let scale;
+  if (touchMode && portrait) {
+    // Handheld layout: the picture is width-constrained and the control deck
+    // takes whatever is left, so the width alone decides the scale. Measuring
+    // the deck here instead would be circular — its height depends on this.
+    scale = Math.min(vw / VIEW_W, (vh * 0.6) / VIEW_H);
+  } else {
+    scale = Math.min(vw / VIEW_W, vh / VIEW_H);
+  }
+  scale = scale >= 2 ? Math.floor(scale) : Math.max(scale, 0.5);
+
+  canvas.style.width = `${Math.round(VIEW_W * scale)}px`;
+  canvas.style.height = `${Math.round(VIEW_H * scale)}px`;
+}
+
+/**
+ * Wire the on-screen controls. Every button maps onto the same named action
+ * the keyboard uses, so nothing in the game ever learns there was a
+ * touchscreen involved. Returns whether touch mode is on.
+ */
+function setupTouch(game, canvas, input, audio) {
+  const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  if (!hasTouch) return false;
+
+  document.body.classList.add('touch');
+  const bar = document.getElementById('touch');
+  if (!bar) return false;
+  bar.setAttribute('aria-hidden', 'false');
+
+  for (const btn of bar.querySelectorAll('[data-action]')) {
+    const action = btn.dataset.action;
+    const down = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      btn.classList.add('on');
+      // Keep receiving the release even if the thumb slides off the button.
+      if (e.pointerId !== undefined && btn.setPointerCapture) {
+        try { btn.setPointerCapture(e.pointerId); } catch { /* not capturable */ }
+      }
+      input.press(action);
+      audio.unlock();
+    };
+    const up = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      btn.classList.remove('on');
+      input.release(action);
+    };
+    // Pointer events only: listening for touch *and* mouse double-fires.
+    btn.addEventListener('pointerdown', down);
+    btn.addEventListener('pointerup', up);
+    btn.addEventListener('pointercancel', up);
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
+  // Anywhere on the picture is "confirm", so menus need no dedicated button.
+  // The run scene does not read confirm, so a stray tap mid-route is harmless.
+  const stage = document.getElementById('stage') || canvas;
+  stage.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    input.press('confirm');
+    audio.unlock();
+  });
+  stage.addEventListener('pointerup', () => input.release('confirm'));
+  stage.addEventListener('pointercancel', () => input.release('confirm'));
+
+  return true;
 }
 
 function drawPaused(ctx) {
