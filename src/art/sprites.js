@@ -1,458 +1,848 @@
-// Hand-authored pixel art. Every sprite is a list of equal-length rows of
-// palette keys; '.' is transparent. Sprites are baked to offscreen canvases the
-// first time they are drawn, and the bake validates the rows, so a ragged
-// sprite fails at boot rather than a level in.
+// Hand-authored pixel art.
+//
+// Every sprite is a list of rows of palette keys; '.' is transparent. Rows are
+// written through `mk(width, ...)`, which pads the right edge, so art can be
+// authored by drawing the shape rather than by counting trailing dots — the
+// single biggest source of ragged sprites when this was done by hand.
+//
+// Sprites are baked to offscreen canvases on first use, and the bake validates
+// the rows, so a mistake fails at boot rather than a level in.
+
+import { GENERATED } from './generated.js';
 
 export const PAL = {
-  k: '#171418', // ink
-  d: '#2a2630', // shadow
-  g: '#4a4550', // dark metal
-  G: '#7b7684', // metal
-  c: '#9aa0a8', // concrete
-  C: '#d2d7dd', // concrete light
-  w: '#efe4c4', // paper
-  W: '#fdf6e0', // paper highlight
+  k: '#14121a', // ink / outline
+  d: '#241f2c', // dark cloth, caps
+  g: '#3a3646', // metal, deep
+  G: '#5c5768', // metal, mid
+  H: '#8b8598', // metal, light
+  c: '#a9a2b4', // pale metal
+  C: '#d8d3dd', // concrete, white plastic
+  W: '#fdf6e0', // highlight white
+  m: '#d9cdb0', // cart cream, mid
+  M: '#f0e6cc', // cart cream, light
+  n: '#b3a488', // cart cream, shade
+  N: '#8a7d63', // cart cream, deep
   y: '#ffd24a', // hi-viz yellow
-  Y: '#a8760f', // deep gold
-  l: '#c4e022', // lime
-  o: '#ff6a3d', // ember
-  r: '#a8331f', // rust red
+  Y: '#c99a1e', // gold, mid
+  Z: '#8a6410', // gold, deep
+  o: '#ff7a3d', // hi-viz orange
+  O: '#c8511f', // orange, deep
+  r: '#8f3418', // rust red
+  l: '#c8e04a', // hi-viz lime
+  L: '#8fa62c', // lime, deep
   b: '#4d86c6', // blue
-  n: '#2a4a6a', // deep blue
-  s: '#8a6038', // wood
-  S: '#55381f', // dark wood
+  B: '#2f5f96', // blue, deep
+  v: '#2a4a6a', // denim
+  u: '#7fb0e0', // glass
+  s: '#a97c46', // timber
+  S: '#7a5730', // timber, deep
+  T: '#55381d', // timber, darkest
   f: '#e8b48a', // skin
-  F: '#b57a4f', // skin shade
-  t: '#6b4a2a', // tea
+  F: '#b57a4f', // skin, shade
+  e: '#a9714a', // skin, deep
+  E: '#7d4f31', // skin, deep shade
+  h: '#2b2028', // hair, beard
+  R: '#b8342a', // red
   p: '#d46aa0', // pink
+  q: '#6ec48a', // green
+  x: '#7a4a2c', // rust brown
 };
 
-export const ART = {
-  buggy: [
-    '..k........k..',
-    '..k..kkkk..k..',
-    '..k.kffffk.k..',
-    '..kkkfkfkkkk..',
-    '..kyyyyyyyyk..',
-    '.kkyywwwwyykk.',
-    '.kykywwwwykyk.',
-    '.kyyyyyyyyyyk.',
-    '.kyyyoyyoyyyk.',
-    'kkkkyyyyyykkkk',
-    'kGGkkyyyykkGGk',
-    'kGGkkyyyykkGGk',
-    'kkkkkyyyykkkkk',
-    '..kkk....kkk..',
-  ],
+/** Pad every row out to `w`, so only the drawn part needs writing. */
+function mk(w, ...rows) {
+  return rows.map((row) => {
+    if (row.length > w) throw new Error(`row of ${row.length} exceeds width ${w}: "${row}"`);
+    return row + '.'.repeat(w - row.length);
+  });
+}
 
-  cone: [
-    '...o...',
-    '..ooo..',
-    '..oWo..',
-    '.ooooo.',
-    '.oWWWo.',
-    '.ooooo.',
-    'ooooooo',
-    'kkkkkkk',
-  ],
+/** Repeat a small tile into a bigger shape — pipes, planks, lattice. */
+function tile(rows, times, dx = 0) {
+  const out = rows.map(() => '');
+  for (let i = 0; i < times; i++) {
+    rows.forEach((r, y) => { out[y] += '.'.repeat(i === 0 ? 0 : dx) + r; });
+  }
+  return out;
+}
 
-  barrel: [
-    '.ooooooo.',
-    'oCCCCCCCo',
-    'ooooooooo',
-    'oWWWWWWWo',
-    'oWWWWWWWo',
-    'ooooooooo',
-    'ooooooooo',
-    'oWWWWWWWo',
-    'oWWWWWWWo',
-    'ooooooooo',
-    'koooooook',
-    '.kkkkkkk.',
-  ],
+function pad(rows, left) {
+  return rows.map((r) => '.'.repeat(left) + r);
+}
 
-  pothole: [
-    '...kkkkk....',
-    '.kkddddkkk..',
-    'kkdddddddkk.',
-    'kddddddddkk.',
-    '.kkdddddkk..',
-    '..kkkkkkk...',
-  ],
+function stack(...blocks) {
+  const w = Math.max(...blocks.flat().map((r) => r.length));
+  return blocks.flat().map((r) => r + '.'.repeat(w - r.length));
+}
 
-  puddle: [
-    '...nnnnnn.....',
-    '.nnbbbbbbnn...',
-    'nnbbbCbbbbnn..',
-    'nbbbbbbbbbbnn.',
-    '.nnbbbbbbbnn..',
-    '..nnnnnnnnn...',
-  ],
+export const ART = {};
 
-  gravel: [
-    '..c..c...c..c.....',
-    '.c.cc..c..c..cc...',
-    'c..c..cc..c.c..c..',
-    '.cc..c..c..cc..c..',
-    '..c.c..cc..c..cc..',
-    '.c..cc..c..c.c....',
-  ],
+// --- Federico and his cart -------------------------------------------------
+// A cream site cart, seen from behind: roof on posts, Federico in the seat with
+// his cap, a bed of gossip sheets, and yellow hubs.
 
-  planks: [
-    '..sssssssssss.',
-    '.ssSSSSSSSSSs.',
-    'ssssssssssssss',
-    'sSSSSSSSSSSSSs',
-    'ssssssssssssss',
-    'sSSSSSSSSSSSSs',
-    'ssssssssssssss',
-    'kkkkkkkkkkkkkk',
-  ],
+ART.cart = mk(22,
+  '.....MMMMMMMMMMMM',
+  '.....nnnnnnnnnnnn',
+  '.....kddddddddddk',
+  '.....kdddkkkkdddk',
+  '.....kddkkkkkkddk',
+  '.....kdddffffdddk',
+  '.....kdddfkkfdddk',
+  '.....kdddhhhhdddk',
+  '.....kdoooooooodk',
+  '..knMMMMMMMMMMMMMMnk',
+  '..kmWWWWWWWWWWWWWWmk',
+  '..kmWCCCCCCCCCCCCWmk',
+  '..kmmmmmmmmmmmmmmmmk',
+  '..kNmmmmmmmmmmmmmmNk',
+  '..kNoNmmmmmmmmmmNoNk',
+  '..kNNNNNNNNNNNNNNNNk',
+  '..kkkkkkkkkkkkkkkkkk',
+  '.kkkk...........kkkk',
+  '.kGGk...........kGGk',
+  '.kyyk...........kyyk',
+  '.kGGk...........kGGk',
+  '.kkkk...........kkkk',
+);
 
-  mixer: [
-    '....kkkkkk......',
-    '..kkCCCCCCkk....',
-    '.kCCCCCCCCCCk...',
-    'kCCCCggCCCCCCk..',
-    'kCCCggggCCCCCk..',
-    'kCCCCggCCCCCCk..',
-    '.kCCCCCCCCCCk...',
-    '..kkCCCCCCkk....',
-    '....kkkkkk......',
-    '.....gg.gg......',
-    '....gg...gg.....',
-    '...gg.....gg....',
-    '..gg.......gg...',
-    '.gg.........gg..',
-    'kkkk.......kkkk.',
-    '................',
-  ],
+// --- the crew --------------------------------------------------------------
+// One base body, then poses. Hard-hat and vest colour are palette swaps, which
+// is what lets a jobsite have thirty people on it without thirty sprites.
+// Everything carries a dark outline, the way the concept sheet does — without
+// it a hi-viz vest dissolves into a sunlit dirt road.
 
-  forklift: [
-    '..kk............',
-    '..ky............',
-    '..ky...kkkkk....',
-    '..ky..kyyyyyk...',
-    '..ky..kybbbyk...',
-    '..ky..kyyyyyk...',
-    '..ky...kyyyk....',
-    '..kyyyyyyyyyk...',
-    '.kyyyyyyyyyyyk..',
-    '.kyyyyyyyyyyyk..',
-    'kkkkyyyyyyykkkk.',
-    'kGGkkyyyyykkGGk.',
-    'kGGk.......kGGk.',
-    'kkkk.......kkkk.',
-  ],
+ART.worker = mk(14,
+  '.....kkkk',
+  '....kCCCCk',
+  '...kCCCCCCk',
+  '..kkkkkkkkkk',
+  '....kffffk',
+  '....kfFFfk',
+  '.....kffk',
+  '...kllllllk',
+  '..kllllllllk',
+  '..klWWllWWlk',
+  '..kllllllllk',
+  '..kllllllllk',
+  '...kllllllk',
+  '...kvvvvvvk',
+  '...kvvvvvvk',
+  '...kvvkkvvk',
+  '...kvvkkvvk',
+  '...kvvkkvvk',
+  '...kkkkkkkk',
+  '..kkkkkkkkkk',
+);
 
-  barrow: [
-    '..GGGGGGGG..',
-    '.GCCCCCCCCG.',
-    'GCCCCCCCCCCG',
-    'GCCCCCCCCCCG',
-    '.GCCCCCCCCG.',
-    '..GGGGGGGG..',
-    '...G....G...',
-    '..kk....G...',
-    '.kGGk...G...',
-    '..kk........',
-  ],
+ART.workerCheer = mk(14,
+  'k....kkkk....k',
+  'kfk.kCCCCk.kfk',
+  '.kkkCCCCCCkkk',
+  '..kkkkkkkkkk',
+  '.k..kffffk..k',
+  '.k..kfFFfk..k',
+  '.k...kffk...k',
+  '.kkkllllllkkk',
+  '..kllllllllk',
+  '..klWWllWWlk',
+  '..kllllllllk',
+  '..kllllllllk',
+  '...kllllllk',
+  '...kvvvvvvk',
+  '...kvvvvvvk',
+  '...kvvkkvvk',
+  '...kvvkkvvk',
+  '...kvvkkvvk',
+  '...kkkkkkkk',
+  '..kkkkkkkkkk',
+);
 
-  pole: [
-    '..GGGGGGGGGGGGGG..',
-    '.GCCCCCCCCCCCCCCG.',
-    'GCCCCCCCCCCCCCCCCG',
-    '.GCCCCCCCCCCCCCCG.',
-    '..GGGGGGGGGGGGGG..',
-    '..kkkkkkkkkkkkkk..',
-  ],
+ART.workerPhone = mk(14,
+  '.....kkkk',
+  '....kCCCCk',
+  '...kCCCCCCk',
+  '..kkkkkkkkkk',
+  '....kffffk',
+  '....kfFFfk.kk',
+  '.....kffkkuk',
+  '...kllllllkk',
+  '..kllllllllk',
+  '..klWWllWWlk',
+  '..kllllllllk',
+  '..kllllllllk',
+  '...kllllllk',
+  '...kvvvvvvk',
+  '...kvvvvvvk',
+  '...kvvkkvvk',
+  '...kvvkkvvk',
+  '...kvvkkvvk',
+  '...kkkkkkkk',
+  '..kkkkkkkkkk',
+);
 
-  sandpile: [
-    '......yyyy......',
-    '....yyYYYYyy....',
-    '..yyYYYYYYYYyy..',
-    '.yYYYYYYYYYYYYy.',
-    'yYYYYYYYYYYYYYYy',
-    'yYYYYYYYYYYYYYYy',
-    'kYYYYYYYYYYYYYYk',
-    '.kkkkkkkkkkkkkk.',
-  ],
+ART.workerRadio = mk(14,
+  '.....kkkk',
+  '....kCCCCk',
+  '...kCCCCCCk',
+  '..kkkkkkkkkk',
+  '....kffffk.k',
+  '....kfFFfkgk',
+  '.....kffkfgk',
+  '...kllllllfk',
+  '..kllllllllk',
+  '..klWWllWWlk',
+  '..kllllllllk',
+  '..kllllllllk',
+  '...kllllllk',
+  '...kvvvvvvk',
+  '...kvvvvvvk',
+  '...kvvkkvvk',
+  '...kvvkkvvk',
+  '...kvvkkvvk',
+  '...kkkkkkkk',
+  '..kkkkkkkkkk',
+);
 
-  worker: [
-    '..kkkk..',
-    '.kWWWWk.',
-    '.kWWWWk.',
-    '..kffk..',
-    '..fffk..',
-    '.kyyyyk.',
-    'kyyyyyyk',
-    'kyyllyyk',
-    'kyyyyyyk',
-    '.kyyyyk.',
-    '.knnnnk.',
-    '.kn..nk.',
-    '.kn..nk.',
-    '.kk..kk.',
-  ],
+ART.workerKneel = mk(14,
+  '',
+  '',
+  '',
+  '.....kkkk',
+  '....kCCCCk',
+  '...kCCCCCCk',
+  '..kkkkkkkkkk',
+  '....kffffk',
+  '....kfFFfk',
+  '...koooooook',
+  '..kooooooook',
+  '..koWWooWWok',
+  '..kooooooookf',
+  '...koooooookf',
+  '...kvvvvvvvk',
+  '..kvvvvvvvvk',
+  '..kvvvvvvvvk',
+  '..kvvvvvvk',
+  '..kkkkkkkk',
+  '..kkkkkkkkk',
+);
 
-  workerCheer: [
-    'k.kkkk.k',
-    'kkWWWWkk',
-    '.kWWWWk.',
-    'k.kffk.k',
-    'k.fffk.k',
-    'kkyyyykk',
-    '.kyyyyk.',
-    '.kyllyk.',
-    '.kyyyyk.',
-    '.kyyyyk.',
-    '.knnnnk.',
-    '.kn..nk.',
-    '.kn..nk.',
-    '.kk..kk.',
-  ],
+ART.workerSit = mk(14,
+  '',
+  '',
+  '.....kkkk',
+  '....kCCCCk',
+  '...kCCCCCCk',
+  '..kkkkkkkkkk',
+  '....kffffk',
+  '....kfFFfk',
+  '.....kffk',
+  '...koooooook',
+  '..kooooooook',
+  '..koWWooWWok',
+  '..kooooooook',
+  '...kooooooook',
+  '...kvvvvvvvvk',
+  '...kvvvvvvvvk',
+  '...kvvk',
+  '...kvvk',
+  '...kkk',
+  '..kkkk',
+);
 
-  workerDuck: [
-    '........',
-    '........',
-    '..kkkk..',
-    '.kWWWWk.',
-    '..kffk..',
-    '..fffk..',
-    '.kyyyyk.',
-    'kyyllyyk',
-    'kyyyyyyk',
-    '.kyyyyk.',
-    '.knnnnk.',
-    '.knn.nk.',
-    '.kn..nk.',
-    '.kk..kk.',
-  ],
+ART.workerDuck = mk(14,
+  '',
+  '',
+  '.....kkkk',
+  '....kCCCCk',
+  '...kCCCCCCk',
+  '..kkkkkkkkkk',
+  '....kffffk',
+  '....kfFFfk',
+  '...kllllllk',
+  '..kllllllllk',
+  '..klWWllWWlk',
+  '..kllllllllk',
+  '...kllllllk',
+  '...kvvvvvvk',
+  '...kvvvvvvk',
+  '...kvvkkvvk',
+  '...kvvkkvvk',
+  '...kvvkkvvk',
+  '...kkkkkkkk',
+  '..kkkkkkkkkk',
+);
 
-  foreman: [
-    '..kkkk..',
-    '.koooook',
-    '.koooook',
-    '..kffk..',
-    '..fffk..',
-    '.kbbbbk.',
-    'kbbbbbbk',
-    'kbbWWbbk',
-    'kbbWWbbk',
-    '.kbbbbk.',
-    '.kdddgk.',
-    '.kd..dk.',
-    '.kd..dk.',
-    '.kk..kk.',
-  ],
+// The superintendent: orange hat, clipboard, no patience.
+ART.super = mk(14,
+  '.....kkkk',
+  '....koooook',
+  '...koooooook',
+  '..kkkkkkkkkk',
+  '....kffffk',
+  '....kfhhfk',
+  '.....kffk',
+  '...koooooook',
+  '..kooooooook',
+  '..koWWooWWok',
+  '..kooooooookk',
+  '..kooooooookWk',
+  '...koooooookk',
+  '...kdddddddk',
+  '...kdddddddk',
+  '...kddkkddk',
+  '...kddkkddk',
+  '...kddkkddk',
+  '...kkkkkkkk',
+  '..kkkkkkkkkk',
+);
 
-  scaffold: [
-    'g................g',
-    'g................g',
-    'gssssssssssssssssg',
-    'g.G............G.g',
-    'g..G..........G..g',
-    'g...G........G...g',
-    'gGGGGGGGGGGGGGGGGg',
-    'g...G........G...g',
-    'g..G..........G..g',
-    'gssssssssssssssssg',
-    'g.G............G.g',
-    'g..G..........G..g',
-    'gGGGGGGGGGGGGGGGGg',
-    'g................g',
-    'g................g',
-    'gssssssssssssssssg',
-    'g................g',
-    'kk..............kk',
-  ],
+// --- Bomba -----------------------------------------------------------------
+// Scaffold designer, legend. White hard hat, shades, beard, hi-viz.
 
-  teaHut: [
-    '..rrrrrrrrrrrrrrrr..',
-    '.rrrrrrrrrrrrrrrrrr.',
-    'rrrrrrrrrrrrrrrrrrrr',
-    'ssssssssssssssssssss',
-    'sSSssnnnnnnssssSSSSs',
-    'sSSssnbbbbnssssSSSSs',
-    'sssssnbbbbnsssssssss',
-    'sSSssnbbbbnssssSSSSs',
-    'sSSssnnnnnnssssSSSSs',
-    'ssssssssssssssssssss',
-    'sSSSSSSssssSSSSSSSSs',
-    'ssssssssssssssssssss',
-    'sSSSSSSssssSSSSSSSSs',
-    'ssssssssssssssssssss',
-    'kkkkkkkkkkkkkkkkkkkk',
-    '....................',
-  ],
+ART.bomba = mk(16,
+  '......kkkk',
+  '....kkCCCCkk',
+  '...kCCCCCCCCk',
+  '..kkkkkkkkkkkk',
+  '....keeeeeek',
+  '....kkkkkkkk',
+  '....keeeeeek',
+  '....khhhhhhk',
+  '.....khhhhk',
+  '...kooooooook',
+  '..kooooooooook',
+  '..koWWooooWWok',
+  '..kooooooooook',
+  '..kooooooooook',
+  '...kooooooook',
+  '...kvvvvvvvvk',
+  '...kvvvvvvvvk',
+  '...kvvvkkvvvk',
+  '...kvvvkkvvvk',
+  '...kvvvkkvvvk',
+  '...kkkkkkkkkk',
+  '..kkkkkkkkkkkk',
+);
 
-  crate: [
-    'ssssssssss',
-    'sWWWWWWWWs',
-    'sWwwwwwwWs',
-    'sWwWWWWwWs',
-    'sWwWyyWwWs',
-    'sWwWyyWwWs',
-    'sWwWWWWwWs',
-    'sWwwwwwwWs',
-    'sWWWWWWWWs',
-    'kkkkkkkkkk',
-  ],
 
-  tea: [
-    '..WWWW..',
-    '.WwwwwW.',
-    'WwttttwW',
-    'WwttttwW',
-    'WwttttwW',
-    '.WwwwwWW',
-    '..WWWW.W',
-    '..kkkk..',
-  ],
+// --- scaffold material -----------------------------------------------------
 
-  sheet: [
-    '.WWWW.',
-    'WwwwwW',
-    'WwWWwW',
-    'WwwwwW',
-    '.WWWW.',
-  ],
+const PIPE_END = ['.HHH.', 'HGcGH', 'HcccH', 'HGcGH', '.HHH.'];
 
-  sign: [
-    '..yyyyyy..',
-    '.yykkkkyy.',
-    'yykkyykkyy',
-    'ykkyyyykky',
-    'ykkyykkkky',
-    'ykkkyykkky',
-    'yykkkkkkyy',
-    '.yykkkkyy.',
-    '..yyyyyy..',
-    '....GG....',
-    '....GG....',
-    '....GG....',
-    '....GG....',
-    '...kkkk...',
-  ],
+ART.pipePile = stack(
+  pad(tile(PIPE_END, 3, 0), 6),
+  pad(tile(PIPE_END, 4, 0), 3),
+  pad(tile(PIPE_END, 5, 0), 0),
+  mk(25, 'kkkkkkkkkkkkkkkkkkkkkkkkk'),
+);
 
-  floodlight: [
-    '..WWWWWW..',
-    '.WWyyyyWW.',
-    'WWyyyyyyWW',
-    'WWyyyyyyWW',
-    '.WWyyyyWW.',
-    '..GGGGGG..',
-    '....GG....',
-    '....GG....',
-    '....GG....',
-    '....GG....',
-    '....GG....',
-    '....GG....',
-    '...GGGG...',
-    '..GG..GG..',
-    '.GG....GG.',
-    'kkk....kkk',
-  ],
+const FRAME_ROW = ['BBBBBBBB', 'B.B..B.B', 'B..BB..B', 'B.B..B.B'];
 
-  portaloo: [
-    '.gggggggggg.',
-    'gllllllllllg',
-    'gllllllllllg',
-    'gllWWWWWWllg',
-    'gllWbbbbWllg',
-    'gllWbbbbWllg',
-    'gllWWWWWWllg',
-    'gllllllllllg',
-    'gllllllllllg',
-    'glllllllkllg',
-    'gllllllkkllg',
-    'glllllllkllg',
-    'gllllllllllg',
-    'gllllllllllg',
-    'gllllllllllg',
-    'gllllllllllg',
-    'gkkkkkkkkkkg',
-    '.kkkkkkkkkk.',
-  ],
+ART.frameStack = stack(
+  mk(24, '.bbbbbbbbbbbbbbbbbbbbbb'),
+  tile(FRAME_ROW, 3, 0),
+  tile(FRAME_ROW, 3, 0),
+  tile(FRAME_ROW, 3, 0),
+  mk(24, 'BBBBBBBBBBBBBBBBBBBBBBBB', 'kkkkkkkkkkkkkkkkkkkkkkkk'),
+);
 
-  fence: [
-    'yykkyykkyykkyy',
-    'kkyykkyykkyykk',
-    'yykkyykkyykkyy',
-    'kkyykkyykkyykk',
-    'G............G',
-    'G............G',
-    'G............G',
-    'G............G',
-    'G............G',
-    'k............k',
-  ],
+ART.plankBundle = mk(30,
+  '..ssssssssssssssssssssssss',
+  '.sSSSSSSSSSSSSSSSSSSSSSSSSs',
+  'ssssssssssssssssssssssssssss',
+  'sTTTTTTTTTTTTTTTTTTTTTTTTTTs',
+  'ssssssssssssssssssssssssssss',
+  'sSSSSSSSSSSSSSSSSSSSSSSSSSSs',
+  'ssssssssssssssssssssssssssss',
+  'kkkkkkkkkkkkkkkkkkkkkkkkkkkk',
+  '..kk..................kk',
+);
 
-  bomba: [
-    '..ss..........ss..',
-    '.sSSs........sSSs.',
-    '.ssssss....ssssss.',
-    '..ssssssssssssss..',
-    '.ssssssssssssssss.',
-    '.ssWksssssssskWss.',
-    '.ssssssssssssssss.',
-    '..sssskkkkkkssss..',
-    '..ssssskppkssss...',
-    '.ssssssppssssssss.',
-    '.ssssssssssssssss.',
-    '..ssssssssssssss..',
-    '..ss..ssss..ss....',
-    '..kk..kkkk..kk....',
-  ],
+ART.jacks = mk(26,
+  '..y.......y.......y',
+  '..y.......y.......y',
+  '.HyH.....HyH.....HyH',
+  '.HyH.....HyH.....HyH',
+  '..y.......y.......y',
+  '..y..yyyyyyyyyy...y',
+  '..y..y....y....y..y',
+  '.GyG.y...GyG...y.GyG',
+  '.G.G.....G.G.....G.G',
+  'GG.GG...GG.GG...GG.GG',
+  'kk.kk...kk.kk...kk.kk',
+);
 
-  puff: [
-    '..cc..cc..',
-    '.cCCccCCc.',
-    'cCCCCCCCCc',
-    'cCCCCCCCCc',
-    '.cCCccCCc.',
-    '..cc..cc..',
-  ],
+ART.couplers = mk(28,
+  '..sssssssssssssssssssssss',
+  '.sSGHGHGGHGHGGHGHGGHGHGSs',
+  'ssGHGGHGHGGHGHGGHGHGGHGHss',
+  'sSHGGHGHGGHGHGGHGHGGHGHGSs',
+  'ssGGHGHGGHGHGGHGHGGHGHGGss',
+  'sSSSSSSSSSSSSSSSSSSSSSSSSs',
+  'ssssssssssssssssssssssssss',
+  'sTTTTTTTTTTTTTTTTTTTTTTTTs',
+  'kkkkkkkkkkkkkkkkkkkkkkkkkk',
+);
 
-  spark: [
-    '...y...',
-    '.y.y.y.',
-    '..yWy..',
-    'yyWWWyy',
-    '..yWy..',
-    '.y.y.y.',
-    '...y...',
-  ],
+ART.steelBeams = mk(30,
+  '..HHHHHHHHHHHHHHHHHHHHHHHHHH',
+  '.HGGGGGGGGGGGGGGGGGGGGGGGGGGH',
+  'HHHHHHHHHHHHHHHHHHHHHHHHHHHHHH',
+  'gGGGGGGGGGGGGGGGGGGGGGGGGGGGGg',
+  'HHHHHHHHHHHHHHHHHHHHHHHHHHHHHH',
+  '.HGGGGGGGGGGGGGGGGGGGGGGGGGGH',
+  '.HHHHHHHHHHHHHHHHHHHHHHHHHHHH',
+  'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkk',
+);
 
-  star: [
-    '...y...',
-    '...y...',
-    '.yyyyy.',
-    'yyyWyyy',
-    '.yyyyy.',
-    '..y.y..',
-    '.y...y.',
-  ],
+// --- heavy equipment -------------------------------------------------------
 
-  arrow: [
-    '....o....',
-    '...ooo...',
-    '..ooWoo..',
-    '.ooWWWoo.',
-    'ooooWoooo',
-    '....W....',
-    '....o....',
-  ],
-};
+ART.forklift = mk(28,
+  '..kk',
+  '..ky.................kkkkkk',
+  '..ky...............kkyyyyyyk',
+  '..ky..............kyyuuuuyyk',
+  '..ky..............kyyuuuuyyk',
+  '..ky..............kyyyyyyyyk',
+  '..ky...............kyyyyyyk',
+  '..ky..kkkkkk........kyyyyyk',
+  '..ky.kyyyyyyk.......kyyyyyk',
+  '..kyykyyyyyyykkkkkkkkyyyyyk',
+  '..kyykyyyyyyyyyyyyyyyyyyyyk',
+  '.kyyyyyyyyyyyyyyyyyyyyyyyyk',
+  '.kyyyyyyyyyyyyyyyyyyyyyyyyk',
+  '.kyyyyyyyyyyyyyyyyyyyyyyyyk',
+  'kkkkkyyyyyyyyyyyyyyyyyykkkk',
+  'kGGGkkyyyyyyyyyyyyyykkGGGk',
+  'kGGGk.kkkkkkkkkkkkk..kGGGk',
+  'kkGkk...............kkGkk',
+  '.kkk.................kkk',
+);
 
-// --- derived sprites ------------------------------------------------------
+ART.truck = mk(34,
+  '.........kkkkkkkkkk',
+  '........kCCCCCCCCCCk',
+  '.......kCuuuuuuuuuuCk',
+  '......kCCuuuuuuuuuuCCk',
+  'kkkkkkCCCCCCCCCCCCCCCCkkkkkkkkk',
+  'kCCCCCCCCCCCCCCCCCCCCCCCCCCCCCk',
+  'kCCCCCCCCCCCCCCCCCCCCCCCCCCCCCk',
+  'kCCCCbbbbCCCCCCCCCCCCCCCCCCCCCk',
+  'kCCCCbWWbCCCCCCCCCCCCCCCCCCCCCk',
+  'kCCCCbbbbCCCCCCCCCCCCCCCCCCCCCk',
+  'kCCCCCCCCCCCCCCCCCCCCCCCCCCCCCk',
+  'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk',
+  '..kkkk...............kkkk',
+  '.kGGGGk.............kGGGGk',
+  '.kGkkGk.............kGkkGk',
+  '.kGGGGk.............kGGGGk',
+  '..kkkk...............kkkk',
+);
 
-// Shear the cab of the buggy against its wheels to fake a steering pose.
+ART.flatbed = mk(40,
+  '..........................kkkkkkkkkkkk',
+  '.........................kCCCCCCCCCCCk',
+  '.........................kCuuuuuuuuuCk',
+  '..ssssssssssssssssssss...kCCuuuuuuuCCk',
+  '.sSSSSSSSSSSSSSSSSSSSSs..kCCCCCCCCCCCk',
+  'ssssssssssssssssssssssss.kCCCCCCCCCCCk',
+  'sTTTTTTTTTTTTTTTTTTTTTTs.kCCCCCCCCCCCk',
+  'ssssssssssssssssssssssss.kCCCCCCCCCCCk',
+  'oooooooooooooooooooooooo.kCCCCCCCCCCCk',
+  'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk',
+  'kGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGk',
+  'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk',
+  '..kkkk......kkkk........kkkk....kkkk',
+  '.kGGGGk....kGGGGk......kGGGGk..kGGGGk',
+  '.kGkkGk....kGkkGk......kGkkGk..kGkkGk',
+  '.kGGGGk....kGGGGk......kGGGGk..kGGGGk',
+  '..kkkk......kkkk........kkkk....kkkk',
+);
+
+ART.mixer = mk(40,
+  '.......kkkkkkkkkkkk',
+  '.....kkCCCCCCCCCCCCkk',
+  '....kCCCCCCCCCCCCCCCCk',
+  '...kCCCGCCCGCCCGCCCCCk.....kkkkkkkkkk',
+  '..kCCCCGCCCGCCCGCCCCCCk...kCCCCCCCCCCk',
+  '..kCCCGCCCGCCCGCCCCCCCk..kCuuuuuuuuuCk',
+  '..kCCGCCCGCCCGCCCCCCCCk..kCCuuuuuuuCCk',
+  '..kCGCCCGCCCGCCCCCCCCCk..kCCCCCCCCCCCk',
+  '...kCCCGCCCGCCCGCCCCCk..kCCCCCCCCCCCCk',
+  '....kCCCCCCCCCCCCCCCCk.kCCCCCCCCCCCCCk',
+  '.....kkCCCCCCCCCCCCkk..kCCCCCCCCCCCCCk',
+  '.......kkkkkkkkkkkk...kCCCCCCCCCCCCCCk',
+  'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk',
+  'kGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGk',
+  'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk',
+  '..kkkk.....kkkk......kkkk....kkkk',
+  '.kGGGGk...kGGGGk....kGGGGk..kGGGGk',
+  '.kGkkGk...kGkkGk....kGkkGk..kGkkGk',
+  '.kGGGGk...kGGGGk....kGGGGk..kGGGGk',
+  '..kkkk.....kkkk......kkkk....kkkk',
+);
+
+ART.dumpster = mk(34,
+  '..bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  '.bBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBb',
+  'bBsssBBsssBBBsssBBsssBBBsssBBsssBb',
+  'bBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBb',
+  'bBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBb',
+  'bBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBb',
+  'bBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBb',
+  'bBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBb',
+  'bBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBb',
+  'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  'kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk',
+  '.kk............................kk',
+);
+
+// A crane hook, dangling a bundle of pipe over the route.
+ART.craneHook = mk(20,
+  '.........k',
+  '.........k',
+  '.........k',
+  '.........k',
+  '........kkk',
+  '.......kHHHk',
+  '.......kHGHk',
+  '.......kHHHk',
+  '........kkk',
+  '.........k',
+  '........kkk',
+  '.......kH.Hk',
+  '.......kH.Hk',
+  '.......kHHHk',
+  '..kkkkkkkkkkkkkk',
+  '.kHHHHHHHHHHHHHHk',
+  'kHcGcGcGcGcGcGcHk',
+  'kHGcGcGcGcGcGcGHk',
+  '.kHHHHHHHHHHHHHHk',
+  '..kkkkkkkkkkkkkk',
+);
+
+// --- signage and small props -----------------------------------------------
+
+ART.cone = mk(11,
+  '....oo',
+  '...oooo',
+  '...oWWo',
+  '..oooooo',
+  '..oWWWWo',
+  '.oooooooo',
+  '.oWWWWWWo',
+  'oooooooooo',
+  'kkkkkkkkkk',
+  '.kkkkkkkk',
+);
+
+ART.barrel = mk(14,
+  '..ooooooooo',
+  '.oCCCCCCCCCo',
+  'ooooooooooooo',
+  'oWWWWWWWWWWWo',
+  'oWWWWWWWWWWWo',
+  'ooooooooooooo',
+  'ooooooooooooo',
+  'oWWWWWWWWWWWo',
+  'oWWWWWWWWWWWo',
+  'ooooooooooooo',
+  'kooooooooooook',
+  '.kkkkkkkkkkk',
+);
+
+ART.signStay = mk(16,
+  '...yyyyyyyyyy',
+  '..yyyyyyyyyyyy',
+  '.yykkkkkkkkkkyy',
+  '.yykWkWkkWkWkyy',
+  '.yykWkWkkWkWkyy',
+  '.yykkkkkkkkkkyy',
+  '.yykWWkkWWkWkyy',
+  '..yyyyyyyyyyyy',
+  '...yyyyyyyyyy',
+  '......GG',
+  '......GG',
+  '......GG',
+  '......GG',
+  '.....kkkk',
+);
+
+ART.signCaution = mk(16,
+  '...yyyyyyyyyy',
+  '..yyyyyyyyyyyy',
+  '.yykkkkkkkkkkyy',
+  '.yykkWWkkWWkkyy',
+  '.yykWkkWWkkWkyy',
+  '.yykkkkkkkkkkyy',
+  '.yykWkWkkWkWkyy',
+  '..yyyyyyyyyyyy',
+  '...yyyyyyyyyy',
+  '......GG',
+  '......GG',
+  '......GG',
+  '......GG',
+  '.....kkkk',
+);
+
+ART.fence = mk(20,
+  'yykkyykkyykkyykkyykk',
+  'kkyykkyykkyykkyykkyy',
+  'yykkyykkyykkyykkyykk',
+  'kkyykkyykkyykkyykkyy',
+  'G..................G',
+  'G..................G',
+  'G..................G',
+  'G..................G',
+  'G..................G',
+  'G..................G',
+  'k..................k',
+);
+
+ART.floodlight = mk(14,
+  '..WWWWWWWWWW',
+  '.WWyyyyyyyyWW',
+  'WWyyyyyyyyyyWW',
+  'WWyyyyyyyyyyWW',
+  '.WWyyyyyyyyWW',
+  '..GGGGGGGGGG',
+  '......GG',
+  '......GG',
+  '......GG',
+  '......GG',
+  '......GG',
+  '......GG',
+  '......GG',
+  '.....GGGG',
+  '....GG..GG',
+  '...GG....GG',
+  '..kkk....kkk',
+);
+
+ART.portaloo = mk(16,
+  '.llllllllllllll',
+  'lLLLLLLLLLLLLLLl',
+  'lLllllllllllllLl',
+  'lLlCCCCCCCCCClLl',
+  'lLlCuuuuuuuuClLl',
+  'lLlCuuuuuuuuClLl',
+  'lLlCCCCCCCCCClLl',
+  'lLllllllllllllLl',
+  'lLllllllllllllLl',
+  'lLlllllllllkllLl',
+  'lLllllllllkkllLl',
+  'lLlllllllllkllLl',
+  'lLllllllllllllLl',
+  'lLllllllllllllLl',
+  'lLllllllllllllLl',
+  'lLLLLLLLLLLLLLLl',
+  'kkkkkkkkkkkkkkkk',
+  '.kkkkkkkkkkkkkk',
+);
+
+ART.sandpile = mk(22,
+  '........yyyyyy',
+  '......yyYYYYYYyy',
+  '....yyYYYYYYYYYYyy',
+  '..yyYYYYYYYYYYYYYYyy',
+  '.yYYYYYYYYYYYYYYYYYYy',
+  'yYYYYYYYYYYYYYYYYYYYYy',
+  'yYYYYYYYYYYYYYYYYYYYYy',
+  'kYYYYYYYYYYYYYYYYYYYYk',
+  '.kkkkkkkkkkkkkkkkkkkk',
+);
+
+ART.cooler = mk(14,
+  '..CCCCCCCCCC',
+  '.CWWWWWWWWWWC',
+  'CCCCCCCCCCCCCC',
+  'CbbbbbbbbbbbbC',
+  'CbbbbbbbbbbbbC',
+  'CbbbbbbbbbbbbC',
+  'CCCCCCCCCCCCCC',
+  'kkkkkkkkkkkkkk',
+);
+
+ART.toolbox = mk(14,
+  '.....GG',
+  '....GGGG',
+  '..RRRRRRRRRR',
+  '.RRRRRRRRRRRR',
+  'RRRRRRRRRRRRRR',
+  'RRRRkkkkkkRRRR',
+  'RRRRRRRRRRRRRR',
+  'kkkkkkkkkkkkkk',
+);
+
+
+// --- ground decals ---------------------------------------------------------
+
+
+
+
+
+// --- power ups -------------------------------------------------------------
+
+ART.puSpeed = mk(16,
+  '.....bbbbbb',
+  '...bbuuuuubb',
+  '..buuuuuuuuub',
+  '.buuuuuuuuuuub',
+  'bWWbuuuuuuuuub',
+  'oWWobbbbbbbbbb',
+  'ooooooookkkkkk',
+  '.oooooo',
+  '..oooo',
+  '...oo',
+);
+
+ART.puPapers = mk(16,
+  '..WWWWWWWWWW',
+  '.WCCCCCCCCCCW',
+  'WCCCCCCCCCCCCW',
+  'WCkkkkkkkkkCCW',
+  'WCCCCCCCCCCCCW',
+  'WCkkkkkkkkkCCW',
+  'WCCCCCCCCCCCCW',
+  'WCkkkkkkkkkCCW',
+  'WCCCCCCCCCCCCW',
+  '.WWWWWWWWWWWW',
+  '..kkkkkkkkkk',
+);
+
+ART.puVest = mk(14,
+  '..llllllllll',
+  '.llllllllllll',
+  'lll..llllll..l',
+  'llll.llllll.ll',
+  'llWWllllllWWll',
+  'llWWllllllWWll',
+  'llllllllllllll',
+  'llWWWWWWWWWWll',
+  'llllllllllllll',
+  '.llllllllllll',
+  '..kkkkkkkkkk',
+);
+
+ART.puConfusion = mk(16,
+  '...y......y',
+  '..y.y....y.y',
+  '....y......y',
+  '...y......y',
+  '...y......y',
+  '',
+  '...y......y',
+  '.....kkkk',
+  '....kCCCCk',
+  '...kCCCCCCk',
+  '..kkkkkkkkkk',
+  '....kffffk',
+  '....kfFFfk',
+  '..kllllllllk',
+  '..kllllllllk',
+  '..kkkkkkkkkk',
+);
+
+ART.puBomba = mk(16,
+  '......kkkk',
+  '....kkCCCCkk',
+  '...kCCCCCCCCk',
+  '..kkkkkkkkkkkk',
+  '....eeeeeeee',
+  '....ekkkkkke',
+  '....eeeeeeee',
+  '....hhhhhhhh',
+  '...oooooooooo',
+  '..oooooooooooo',
+  '..oWWooooooWWo',
+  '..oooooooooooo',
+  '...oooooooooo',
+  '....kkkkkkkk',
+);
+
+// --- effects ---------------------------------------------------------------
+
+ART.sheet = mk(9,
+  '.WWWWWW',
+  'WCCCCCCW',
+  'WCkkkkCW',
+  'WCCCCCCW',
+  'WCkkkkCW',
+  '.WWWWWW',
+);
+
+ART.puff = mk(14,
+  '...cc..cc',
+  '..cCCccCCc',
+  '.cCCCCCCCCc',
+  'cCCCCCCCCCCc',
+  'cCCCCCCCCCCc',
+  '.cCCCCCCCCc',
+  '..cCCccCCc',
+  '...cc..cc',
+);
+
+ART.spark = mk(11,
+  '.....y',
+  '..y..y..y',
+  '...yWyWy',
+  '....yWy',
+  'yyyWWWWWyy',
+  '....yWy',
+  '...yWyWy',
+  '..y..y..y',
+  '.....y',
+);
+
+ART.star = mk(11,
+  '....y',
+  '....y',
+  '..yyyyy',
+  '.yyyWyyy',
+  'yyyWWWyyy',
+  '.yyyWyyy',
+  '..yyyyy',
+  '...y.y',
+  '..y...y',
+);
+
+ART.arrow = mk(13,
+  '.....o',
+  '....ooo',
+  '...ooWoo',
+  '..ooWWWoo',
+  '.ooWWWWWoo',
+  'ooooWWWoooo',
+  '....WWW',
+  '....WWW',
+  '.....o',
+);
+
+ART.splash = mk(14,
+  '.u..u....u',
+  '..u..u..u',
+  '.uubbbbuu',
+  'uubbbbbbuu',
+  '.uubbbbuu',
+  '..uuuuuu',
+);
+
+// --- compiled vector art ---------------------------------------------------
+// Anything in src/art/shapes.js is drawn with real curves and quantised onto
+// this palette by tools/genart.mjs. Those versions win: a hand-typed grid
+// cannot make a round wheel or a domed hard hat, and where both exist the
+// drawn one is strictly better.
+for (const [name, rows] of Object.entries(GENERATED)) ART[name] = rows;
+
+// --- derived sprites -------------------------------------------------------
+
+/** Shear the cab of the cart against its wheels to fake a steering pose. */
 function steer(rows, dx) {
   return rows.map((row, i) => {
-    if (i > 8) return row;
-    const pad = '.'.repeat(Math.abs(dx));
-    return dx < 0 ? row.slice(Math.abs(dx)) + pad : pad + row.slice(0, row.length - dx);
+    if (i > 16) return row;
+    const pad2 = '.'.repeat(Math.abs(dx));
+    return dx < 0 ? row.slice(Math.abs(dx)) + pad2 : pad2 + row.slice(0, row.length - dx);
   });
 }
 
@@ -460,11 +850,27 @@ function recolor(rows, map) {
   return rows.map((row) => row.replace(/./g, (ch) => map[ch] || ch));
 }
 
-ART.buggyLeft = steer(ART.buggy, -1);
-ART.buggyRight = steer(ART.buggy, 1);
-ART.buggyWreck = recolor(steer(ART.buggy, 1), { y: 'g', o: 'r', w: 'c', W: 'C' });
+// cartLeft / cartRight / cartWreck are drawn as real leaning poses in
+// src/art/shapes/hero.js — a sheared copy of the straight frame was always a
+// stand-in for art that did not exist yet.
 
-// --- baking ---------------------------------------------------------------
+// Hard-hat and vest swaps give a site full of different people for free.
+const hatYellow = { C: 'y' };
+const hatOrange = { C: 'o' };
+const vestOrange = { l: 'o', W: 'W' };
+const skinDark = { f: 'e', F: 'E' };
+
+ART.workerY = recolor(ART.worker, hatYellow);
+ART.workerO = recolor(ART.worker, hatOrange);
+ART.workerDark = recolor(recolor(ART.worker, skinDark), hatYellow);
+ART.workerOrangeVest = recolor(ART.worker, vestOrange);
+ART.workerCheerY = recolor(ART.workerCheer, hatYellow);
+ART.workerCheerO = recolor(recolor(ART.workerCheer, hatOrange), skinDark);
+ART.workerPhoneY = recolor(ART.workerPhone, hatYellow);
+ART.workerRadioO = recolor(ART.workerRadio, hatOrange);
+ART.workerMeasure = recolor(ART.workerRadio, { ...hatYellow, u: 'y' });
+
+// --- baking ----------------------------------------------------------------
 
 const cache = new Map();
 
@@ -476,8 +882,8 @@ function makeCanvas(w, h) {
   return c;
 }
 
-function bake(name, { flip = false, tint = null, alpha = 1 } = {}) {
-  const key = `${name}|${flip ? 1 : 0}|${tint || ''}|${alpha}`;
+function bake(name, { flip = false, tint = null } = {}) {
+  const key = `${name}|${flip ? 1 : 0}|${tint || ''}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
@@ -510,6 +916,7 @@ function bake(name, { flip = false, tint = null, alpha = 1 } = {}) {
 
 export function spriteSize(name) {
   const rows = ART[name];
+  if (!rows) throw new Error(`unknown sprite "${name}"`);
   return { w: rows[0].length, h: rows.length };
 }
 

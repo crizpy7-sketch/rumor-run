@@ -37,7 +37,10 @@ export function serve(port = 8123) {
       res.writeHead(404, { 'content-type': 'text/plain' }).end('not found');
     }
   });
-  return new Promise((resolve) => server.listen(port, () => resolve({ server, port })));
+  // Pass 0 for an ephemeral port — several harnesses can then run at once.
+  return new Promise((resolve) => server.listen(port, () => {
+    resolve({ server, port: server.address().port });
+  }));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

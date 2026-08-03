@@ -9,7 +9,7 @@
 import { GLYPHS, GLYPH_H, GLYPH_W, glyphFor } from '../src/art/glyphs.js';
 import { ART, PAL } from '../src/art/sprites.js';
 import { SPRITES, FOOTPRINTS } from '../src/art/names.js';
-import { LEVELS, HAZARDS, TARGETS, SCENERY, buildRoute, baseStats, UPGRADES } from '../src/game/levels.js';
+import { LEVELS, HAZARDS, TARGETS, SCENERY, POWERUPS, buildRoute, baseStats, UPGRADES } from '../src/game/levels.js';
 import { ROAD } from '../src/game/road.js';
 import { RUMOR_STAGES, RUMOR_SEED, BARKS, fidelityTier, rumorAt } from '../src/game/rumor.js';
 
@@ -54,13 +54,22 @@ for (const [kind, def] of Object.entries(HAZARDS)) {
 }
 for (const [kind, def] of Object.entries(TARGETS)) {
   check(!!ART[def.sprite], `target "${kind}" draws missing sprite "${def.sprite}"`);
+  check(!!ART[def.cheer], `target "${kind}" has no reaction sprite "${def.cheer}"`);
   check(!!FOOTPRINTS[def.foot], `target "${kind}" points at missing footprint "${def.foot}"`);
-  if (def.rig) check(!!ART[def.rig], `target "${kind}" needs rig sprite "${def.rig}"`);
 }
 for (const kind of SCENERY) {
   check(!!ART[kind], `scenery "${kind}" has no sprite`);
 }
-check(!!FOOTPRINTS.buggy, 'the buggy has no footprint');
+for (const kind of ['gcsBuilding', 'scaffoldTower']) {
+  check(!!ART[kind], `landmark "${kind}" has no sprite`);
+  check(!!FOOTPRINTS[kind], `landmark "${kind}" has no footprint pinned`);
+}
+for (const [kind, def] of Object.entries(POWERUPS)) {
+  check(!!ART[def.sprite], `power up "${kind}" draws missing sprite "${def.sprite}"`);
+  check(!!FOOTPRINTS[def.sprite], `power up "${kind}" has no footprint`);
+  check(typeof def.apply === 'function', `power up "${kind}" does nothing`);
+}
+check(!!FOOTPRINTS.cart, 'the cart has no footprint');
 
 // --- text fits on screen ---------------------------------------------------
 
@@ -126,7 +135,7 @@ for (const level of LEVELS) {
 // --- generated routes ------------------------------------------------------
 
 const stats = baseStats();
-const BUGGY_W = FOOTPRINTS.buggy.lt;
+const BUGGY_W = FOOTPRINTS.cart.lt;
 
 for (const level of LEVELS) {
   for (const seed of SEEDS) {
@@ -138,9 +147,9 @@ for (const level of LEVELS) {
       `${where}: ${route.targets.length} crews for a quota of ${level.quota}`);
 
     // Enough paper to make the quota, counting refills.
-    const crates = route.pickups.filter((p) => p.kind === 'crate').length;
-    check(stats.sheetMax + crates * 6 >= level.quota,
-      `${where}: ${stats.sheetMax} sheets + ${crates} crates cannot cover a quota of ${level.quota}`);
+    const crates = route.pickups.filter((p) => p.kind === 'papers').length;
+    check(stats.sheetMax + crates * 8 >= level.quota,
+      `${where}: ${stats.sheetMax} sheets + ${crates} paper drops cannot cover a quota of ${level.quota}`);
 
     // Crews must be inside throwing range of somewhere on the road.
     for (const tg of route.targets) {
