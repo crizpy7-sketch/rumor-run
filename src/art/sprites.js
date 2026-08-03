@@ -675,55 +675,12 @@ ART.toolbox = mk(14,
   'kkkkkkkkkkkkkk',
 );
 
-ART.pipeLong = mk(34,
-  '..HHHHHHHHHHHHHHHHHHHHHHHHHHHHHH',
-  '.HGcccccccccccccccccccccccccccGH',
-  'HGccccccccccccccccccccccccccccGH',
-  '.HGGGGGGGGGGGGGGGGGGGGGGGGGGGGH',
-  '..HHHHHHHHHHHHHHHHHHHHHHHHHHHH',
-);
 
 // --- ground decals ---------------------------------------------------------
 
-ART.pothole = mk(18,
-  '.....kkkkkkk',
-  '..kkkddddddkkk',
-  '.kkddddddddddkk',
-  'kkddddddddddddkk',
-  'kdddddddddddddkk',
-  '.kkddddddddddkk',
-  '..kkkddddddkkk',
-  '....kkkkkkkk',
-);
 
-ART.puddle = mk(22,
-  '.....vvvvvvvv',
-  '..vvvbbbbbbbbvvv',
-  '.vvbbbbuubbbbbbvv',
-  'vvbbbbbbbbbbbbbbvv',
-  'vbbbbbbbbbbbbbbbbv',
-  '.vvbbbbbbbbbbbbvv',
-  '..vvvbbbbbbbbvvv',
-  '.....vvvvvvvv',
-);
 
-ART.gravel = mk(26,
-  '..c..c...c..c....c..c',
-  '.c.cc..c..c..cc.c..cc',
-  'c..c..cc..c.c..c..c..c',
-  '.cc..c..c..cc..c.c..c',
-  '..c.c..cc..c..cc..c.c',
-  '.c..cc..c..c.c....c..c',
-);
 
-ART.wetPatch = mk(26,
-  '...vvvvvvvvvvvvvvvv',
-  '.vvbbbbbbbbbbbbbbbbvv',
-  'vbbbbbbbbbbbbbbbbbbbbv',
-  'vbbbbbbbbbbbbbbbbbbbbv',
-  '.vvbbbbbbbbbbbbbbbbvv',
-  '...vvvvvvvvvvvvvvvv',
-);
 
 // --- power ups -------------------------------------------------------------
 

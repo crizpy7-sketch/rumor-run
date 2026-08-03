@@ -10,6 +10,7 @@ import { MATERIAL } from './material.js';
 import { PROPS } from './props.js';
 import { PICKUPS } from './pickups.js';
 import { STRUCTURES } from './structures.js';
+import { DECALS } from './decals.js';
 
 export const SHAPES = {
   ...HERO,
@@ -19,4 +20,5 @@ export const SHAPES = {
   ...PROPS,
   ...PICKUPS,
   ...STRUCTURES,
+  ...DECALS,
 };
