@@ -65,6 +65,7 @@ node tools/shoot.mjs           # screenshot tour of every screen -> shots/rr-tou
 node tools/shoot.mjs --level 6 # start the tour on a given shift
 node tools/shoot.mjs --mobile  # phone viewport + real touch -> shots/rr-mobile/
 node tools/genart.mjs          # compile src/art/shapes.js -> src/art/generated.js
+node tools/importart.mjs       # quantise art-in/*.png -> src/art/imported.js
 node tools/artsheet.mjs        # every sprite at 4x -> shots/art-sheet.png
 node tools/rr-progress.mjs     # build progress/rumor-run.html from the results
 npm run check                  # all four, in order
@@ -76,6 +77,14 @@ geometry in `src/art/shapes.js` and compiled down onto the palette by
 `tools/genart.mjs`. The compiled rows are committed, so the node verifier can
 check them and there is no cost at runtime. `tools/artsheet.mjs` is how the art
 gets looked at: a 22px sprite cannot be judged from a gameplay screenshot.
+
+Artwork made outside the repo comes in through a third door: drop a PNG named
+after a sprite into `art-in/` and `tools/importart.mjs` trims it, scales it to
+the size the game already draws that sprite at, and snaps every pixel onto the
+same palette. The point is consistency — a jobsite built from sources that each
+brought their own colours, light direction and anti-aliasing looks like a
+collage no matter how good the individual pieces are. `art-in/README.md` has
+the image spec and a prompt to hand an image model.
 
 `tools/verify.mjs` asserts properties of the shipped data: the font and sprites
 are well formed, every sprite gameplay can draw is pinned with a footprint, no

@@ -48,6 +48,7 @@ metre — that is what keeps the diagonal edges clean instead of stepped.
 | Engine | `src/engine/*` — loop, input, audio, rng |
 | Art | `src/art/*` — sprites, font, and the sprite/footprint registry |
 | Vector art | `src/art/shapes.js` drawn with curves, compiled to `generated.js` |
+| Imported art | `art-in/*.png` quantised onto `PAL`, compiled to `imported.js` |
 | Projection | `src/game/road.js` |
 | Route data | `src/game/levels.js` |
 | Driving, throwing, collisions, scoring | `src/game/play.js` |
@@ -58,6 +59,13 @@ metre — that is what keeps the diagonal edges clean instead of stepped.
 `src/art/names.js` pins every sprite name **and** its road-space hitbox.
 Gameplay reads the footprint, art reads the sprite name, and neither invents
 one. That is what stops a barrel from looking twice the size it hits at.
+
+The three art sources apply in a fixed order — hand-authored, then compiled
+vector, then imported — so the last one to define a name wins, and a sprite can
+be replaced without deleting what it replaced. **No source may introduce a
+colour outside `PAL`**: the vector compiler and the PNG importer both snap to
+it. That single constraint is what makes art from different origins sit in the
+same scene.
 
 ## Feel targets
 

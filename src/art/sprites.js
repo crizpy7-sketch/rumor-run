@@ -9,6 +9,7 @@
 // the rows, so a mistake fails at boot rather than a level in.
 
 import { GENERATED } from './generated.js';
+import { IMPORTED } from './imported.js';
 
 export const PAL = {
   k: '#14121a', // ink / outline
@@ -834,6 +835,13 @@ ART.splash = mk(14,
 // cannot make a round wheel or a domed hard hat, and where both exist the
 // drawn one is strictly better.
 for (const [name, rows] of Object.entries(GENERATED)) ART[name] = rows;
+
+// --- imported art ----------------------------------------------------------
+// PNGs dropped into art-in/ and quantised onto this palette by
+// tools/importart.mjs. Applied last so an import replaces whatever was there,
+// and applied *before* the derived sprites below so the recolours and poses
+// come off the imported base rather than the one it replaced.
+for (const [name, rows] of Object.entries(IMPORTED)) ART[name] = rows;
 
 // --- derived sprites -------------------------------------------------------
 
