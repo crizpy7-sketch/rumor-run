@@ -51,6 +51,10 @@ src/game/levels.js  the eight shifts, the catalogue, route generation
 src/game/rumor.js   the rumour chain and every bark on site
 src/game/screens.js title, brief, results, stores, ending
 tools/              static server, capture harness, autopilot, progress page
+tools/viewer.html   the three.js page img2threejs.mjs fills in
+art-in/             drop PNGs here to replace sprites (see art-in/README.md)
+3d/                 generated three.js pages (see 3d/README.md)
+vendor/             three.js, committed so the 3D pages need no install
 ```
 
 `CONTRACTS.md` holds the fixed decisions — screen size, road-space units,
@@ -65,17 +69,35 @@ node tools/shoot.mjs           # screenshot tour of every screen -> shots/rr-tou
 node tools/shoot.mjs --level 6 # start the tour on a given shift
 node tools/shoot.mjs --mobile  # phone viewport + real touch -> shots/rr-mobile/
 node tools/genart.mjs          # compile src/art/shapes.js -> src/art/generated.js
+node tools/importart.mjs       # quantise art-in/*.png -> src/art/imported.js
 node tools/artsheet.mjs        # every sprite at 4x -> shots/art-sheet.png
+node tools/img2threejs.mjs cart  # extrude a sprite into three.js -> 3d/cart.html
+node tools/shoot3d.mjs --calibrate  # prove the 3D lighting matches the palette
 node tools/rr-progress.mjs     # build progress/rumor-run.html from the results
-npm run check                  # all four, in order
+npm run check                  # everything above, in order
 ```
 
-Art comes from two places. Small props are hand-authored grids; anything that
+Art the game ships with comes from two places. Small props are hand-authored grids; anything that
 needs a curve — a wheel, a hard hat dome, a tapering cone — is drawn with real
 geometry in `src/art/shapes.js` and compiled down onto the palette by
 `tools/genart.mjs`. The compiled rows are committed, so the node verifier can
 check them and there is no cost at runtime. `tools/artsheet.mjs` is how the art
 gets looked at: a 22px sprite cannot be judged from a gameplay screenshot.
+
+Artwork made outside the repo comes in through a third door: drop a PNG named
+after a sprite into `art-in/` and `tools/importart.mjs` trims it, scales it to
+the size the game already draws that sprite at, and snaps every pixel onto the
+same palette. The point is consistency — a jobsite built from sources that each
+brought their own colours, light direction and anti-aliasing looks like a
+collage no matter how good the individual pieces are. `art-in/README.md` has
+the image spec and a prompt to hand an image model.
+
+`tools/img2threejs.mjs` is the side door out: it extrudes any sprite — or any
+image, through the same palette snap — into three.js geometry and writes a
+standalone page into `3d/`. Runs of one colour merge into single quads and
+interior walls are never built, which is what keeps the GCS building at 16,888
+triangles instead of about 135,000. `3d/README.md` covers it, including why
+`--calibrate` exists and what an extrusion cannot do.
 
 `tools/verify.mjs` asserts properties of the shipped data: the font and sprites
 are well formed, every sprite gameplay can draw is pinned with a footprint, no

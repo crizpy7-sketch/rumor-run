@@ -37,6 +37,12 @@ jobs:
       - name: Capture tour
         run: node tools/shoot.mjs
 
+      # The 3D export's lighting is a measurement, not a preference: a face
+      # pointed at the camera has to render as the palette colour it was built
+      # from. This fails if that drifts more than 6%.
+      - name: Calibrate 3D lighting
+        run: node tools/shoot3d.mjs --calibrate
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:
