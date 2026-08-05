@@ -55,6 +55,8 @@ metre — that is what keeps the diagonal edges clean instead of stepped.
 | Chrome | `src/game/hud.js`, `src/game/screens.js` |
 | Story | `src/game/rumor.js` |
 | Harness | `tools/*` |
+| 3D export | `tools/img2threejs.mjs` + `tools/viewer.html` -> `3d/*.html` |
+| Third party | `vendor/*`, committed so nothing needs installing |
 
 `src/art/names.js` pins every sprite name **and** its road-space hitbox.
 Gameplay reads the footprint, art reads the sprite name, and neither invents
@@ -66,6 +68,12 @@ be replaced without deleting what it replaced. **No source may introduce a
 colour outside `PAL`**: the vector compiler and the PNG importer both snap to
 it. That single constraint is what makes art from different origins sit in the
 same scene.
+
+The 3D export reads that same palette and nothing else. Its lighting is
+calibrated so a face pointed at the camera renders as the palette colour it was
+built from — `node tools/shoot3d.mjs --calibrate` measures it and fails past 6%
+drift. The game does not load any of it; it is 2D by decision, not by
+limitation.
 
 ## Feel targets
 

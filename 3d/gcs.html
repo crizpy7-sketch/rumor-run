@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rumor Run in 3D</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #14121a; }
+  body {
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: #a9a2b4;
+    -webkit-user-select: none; user-select: none;
+  }
+  canvas { display: block; touch-action: none; }
+  #hud {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    background: linear-gradient(to top, rgba(20,18,26,0.92), rgba(20,18,26,0));
+    pointer-events: none;
+  }
+  #hud > * { pointer-events: auto; }
+  #name { color: #fdf6e0; letter-spacing: 0.08em; text-transform: uppercase; }
+  #stats { color: #5c5768; }
+  button {
+    font: inherit; color: #d8d3dd; background: #241f2c;
+    border: 1px solid #3a3646; border-radius: 4px;
+    padding: 5px 10px; cursor: pointer; letter-spacing: 0.06em;
+  }
+  button:hover { background: #3a3646; }
+  button[aria-pressed="true"] { background: #ffd24a; color: #14121a; border-color: #ffd24a; }
+  #tip {
+    position: fixed; top: 0; left: 0; right: 0; padding: 10px 14px;
+    color: #5c5768; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="tip">drag to orbit &middot; wheel or pinch to zoom &middot; tap a model to focus</div>
+<div id="hud">
+  <span id="name"></span>
+  <button id="spin" aria-pressed="true">spin</button>
+  <button id="wire" aria-pressed="false">wireframe</button>
+  <button id="next">next</button>
+  <span id="stats"></span>
+</div>
+<script type="module">
+import * as THREE from '../vendor/three.module.min.js';
+
+const DATA = {"pal":{"k":"#14121a","d":"#241f2c","g":"#3a3646","G":"#5c5768","H":"#8b8598","c":"#a9a2b4","C":"#d8d3dd","W":"#fdf6e0","m":"#d9cdb0","M":"#f0e6cc","n":"#b3a488","N":"#8a7d63","y":"#ffd24a","Y":"#c99a1e","Z":"#8a6410","o":"#ff7a3d","O":"#c8511f","r":"#8f3418","l":"#c8e04a","L":"#8fa62c","b":"#4d86c6","B":"#2f5f96","v":"#2a4a6a","u":"#7fb0e0","s":"#a97c46","S":"#7a5730","T":"#55381d","f":"#e8b48a","F":"#b57a4f","e":"#a9714a","E":"#7d4f31","h":"#2b2028","R":"#b8342a","p":"#d46aa0","q":"#6ec48a","x":"#7a4a2c"},"models":[{"name":"gcsBuilding","rows":["........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................",".........................x...........................x......................x...........................","...................x.....x................x.........x.......................x...........................","...................x.....x................x.........x................x......x...............xx..........","........x..........x......x.........x.....x.........x......x.........x......x.........x......x..........",".........x.........x......x.........x.....x.........x......x.........x......x.........x......x..........","....kkkkkxkkkkkkkkThkkkkkkxkkkkkkkkThkkkkkhTkkkkkkkkTkkkkkkThkkkkkkkhTkkkkkkThkkkkkkkhTkkkkkkxkkkkkk....","....kkkkkTkkkkkkkkTdkkkkkkxkkkkkkkkxkkkkkkdTkkkkkkkhTkkkkkkhTkkkkkkkhTkkkkkkThkkkkkkkThkkkkkkThkkkkk....","....kkkkkThkkkkkkkxkkkkkkkTdkkkkkkdTkkkkkkkxkkkkkkkhTkkkkkkhTkkkkkkkThkkkkkkhTkkkkkkkThkkkkkkThkkkkk....","....kkkkGGnnGGGnnGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGGkkkk....","....kkkdghsshhhsshhhhhhhhhhhgdghhhhhhhhhhhhhhhhhhhhdghhhhhhhhhhhhhhhhhhhgdghhhhhhhhhhhhhhhhhhhhghkkk....","....kkNGGNnnNNNnnNNNNNNNNNNGNhGNNNNNNNNNNNNNNNNNNNNhGNNNNNNNNNNNNNNNNNNGNhGNNNNNNNNNNNNNNNNNNNNGGNkk....","....kkmNGnfyfffyfnnnnnnnnHGcnhGnnnnnnnnnnnnnnnnnnnnhGnnnnnnnnHHHHHHHHNGNHhGHHNNNNNNNNNNNNNNNNNNGGGkk....","....kkCNGmmYsssYnNNNNNNNNGGHnhGHGdkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkgGNNNNNGGGGkk....","....kkCNGmmsgggssgGGgggGGggNnhGNksYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYskgNNNNNGGGGkk....","....kkCNGmmsgggssgGGGgGGgggNnhGNkGNNNNNNNNnyNNNNNNNNNNNNNffNNNNNNNNNNNNNNNNNNNNNNNNNNNGkgNNNNNGGGGkk....","....kkCNGmmsgggssgGGGGGggggNnhGNkvvvvvvvvfyyGvvvvvvvvvvGfyyvvvvvvvvvvvvvNfyyyfNvvvvvvvvkgNNNNNGGGGkk....","....kkCNGmmYsssYsgGGGggggggNnhGNkvvvvvvvfyyyNvvvvvvvvvGyyyyGvvvvvvvvvvNyyyyyyyyyNvvvvvvkgNNNNNGGGGkk....","....kkCNGmmYsssYsgGGGggggggNnhGNkvvvvvvNyyyNvvvvvvvvvvnyyyNvvvvvvvvvvNyyyyyfyyyyvvvvvvvkgNNNNNGGGGkk....","....kkCNGmmsgggssgGGGggggggNnhGNkvvvvvvyyyGvvvvvvvNnvGyyyGvvvvvvvNnvvyyynGvvvGnNvvvvvvvkgNNNNNGGGGkk....","....kkCNGmmsgggssGGGGggggggNnhGNkvvvvvGyynvvvvNNNfyyNNyysvvvvvvvfyyGGyyynNNNGvvvvvvvvvvkgNNNNNGGGGkk....","....kkCNGmmsgggssgGGGggggggNnhGNkvvvvvNyyNvvvvnyyyyyNnyyNvvvvvvvnyyGvfyyyyyyyyysvvvvvvvkgNNNNNGGGGkk....","....kkCNGmmYsssfsgGGGggggggNnhGNkvvvvvNyyNvvvvnyyyyyNnyyNvvvvvvvnyyGvvnyyyyyyyyyyGvvvvvkgNNNNNGGGGkk....","....kkCNGmmYsnsYsgGGGggggggNnhGNkvvvvvGyyfvvvvGNNyyyGNyynvvvvvvvyyyvvvvvGNNnnfyyyNvvvvvkgNNNNNGGGGkk....","....kkCGGnfsGggssgGGTggggggGngGGkvvvvvvyyyNvvvvvNyyyvvyyyGvvvvvsyyfvvvvnGvvvvNyyyNvvvvvkgGGGGGGGGGkk....","....kkcTTTssTTTssTTTTTTTTTTTTTTTkvvvvvvNyyynGvGnyyyNvvnyyyNGvGnyyyGvvvNyyyffyyyyyvvvvvvkTTTTTTTTTgkk....","....kkHsssYYsssYYsssssssssssSssskvvvvvvvnyyyyyyyyynvvvvfyyyyyyyyyNvvvvyyyyyyyyyfGvvvvvvksssssssssgkk....","....kkHSSSYfYYYfYSSSSSSSSSSSTSSSkdvvvvvvvsyyyyyyysvvvvvvYyyyyyyyNvvvvvvNYyyyyYGvvvvvvvdkSSSSSSSSSgkk....","....kkcGgGnyfffynGGGGGGGGGGGGhgGGdkkkkkkkkhsYYYshkkkkkkkkTsYYYZhkkkkkkkkkkhhkkkkkkkkkkkgTTTTTTTgggkk....","....kkkkGGnnGGGnnGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGGkkkk....","....kkkdghsshhhsshhhhhhhhhhhhdghhhhhhhhhhhhhhhhhhhgdghhhhhhhhhhhhhhhhhhhhdghhhhhhhhhhhhhhhhhhhgghkkk....","....kkNGGNnnNNNnnNNNNNNNNNNNNhGNNNNNNNNNNNNNNNNNNGNhGNNNNNNNNNNNNNNNNNNNNhGNNNNNNNNNNNNNNNNNNGNGGNkk....","....kkmNGnfyfffyfnnnnnnnnnnnnhGnnnnnnnnnnnnnnnnHGHnhGnnnnnnnnHHHHHHHHHHHHhGHHNNNNNNNNNNNNNNNGGNGGGkk....","....kkCNGmmYsssYnNNNNNNNNNNHnhGHNNNNNNNNNNNNNNNGcnnhGGGGGGGGGGGGGGGGNHHHNhGGGGGGGGGGGGGGGNGGGNGGGGkk....","....kkCNGmmsgggssgGGgggggggNnhGNgggggggGGggggGGgnnnhGggggggGGgggggggGHHHGhGgggggGGgggggggGGNNNGGGGkk....","....kkCNGmmsgggssgGGGggggggNnhGNgggggggGGgggGGggnnnhGggggggGGGggggggGHHHGhGgggggGGggggggGGNNNNGGGGkk....","....kkCNGmmsgggssgGGGggggggNnhGNgggggggGGggGGgggnnnhGggggggGGGggggggGHHHGhGgggggGGgggggGgNNNNNGGGGkk....","....kkCNGmmYsssYsgGGGggggggNnhGNgggggggGGgGgggggnnnhGggggggGGGggggggGHHHGhGgggggGGggggGggNNNNNGGGGkk....","....kkCNGmmYsssYsgGGGggggggNnhGNgggggggGGGggggggnnnhGggggggGGGggggggGHHHGhGgggggGGgggGgggNNNNNGGGGkk....","....kkCNGmmsgggssgGGGggggggNnhGNgggggggGGgggggggnnnhGggggggGGGggggggGHHHGhGgggggGGggGggggNNNNNGGGGkk....","....kkCNGmmsgggssgGGGggggggNnhGNggggggGGGgggggggnnnhGggggggGGGggggggGHHHGhGgggggGGGGgggggNNNNNGGGGkk....","....kkCNGmmsgggssgGGGggggggNnhGNgggggGGGGgggggggnnnhGggggggGGGggggggGHHHGhGgggggGGGggggggNNNNNGGGGkk....","....kkCNGmmYsssYsgGGGggggggNnhGNggggGGgGGgggggggnnnhGggggggGGGggggggGHHHGhGgggggGGgggggggNNNNNGGGGkk....","....kkCNGmmYsssYsgGGGggggggNnhGNgggGGggGGgggggggnnnhGggggggGGGggggggGHHHGhGggggGGGgggggggNNNNNGGGGkk....","....kkCGGnfsgggssgGGTggggggGngGGggGggggGGgggggggHHHgGggggggGGTggggggGNNNGgGgggGTGGgggggggGGGGGGGGGkk....","....kkcTTTssTTTssTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTgkk....","....kkHsssYYsssYYsssssssssssSsssssssssssssssssssssSsssssssssssssssssssssSssssssssssssssssssssssssgkk....","....kkHSSSYfYYYfYSSSSSSSSSSSTSSSSSSSSSSSSSSSSSSSSSTSSSSSSSSSSSSSSSSSSSSSTSSSSSSSSSSSSSSSSSSSSSSSSgkk....","....kkcGgGnyfffynGGGGGGGGGGGGhgGGGGGGGGGGGGGGGGGGGGhgGGGGGGGGGGGGGGGGGGGGhgGGGGGGGGGTTTTTTTTTTTgggkk....","....kkkkGGnnGGGnnGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGGkkkk....","....kkkdgkZZkkkZZkkkkkkkkkkdgdgkkkkkkkkkkkkkkkkkkkkdgkkkkkkkkkkkkkkkkkkdgdgkkkkkkkkkkkkkkkkkkkkghkkk....","....kkNGGNnnNNNnnNNNNNNNNNGGNhGNNNNNNNNNNNNNNNNNNNNhGNNNNNNNNNNNNNNNNNGGNhGNNNNNNNNNNNNNNNNNNNNGGNkk....","....kkmNGmmyfffymmmccccccHGcchGcccccccccccccccccccchGccccccccccHHHHHHHGHHhGHHHHHHHHNNNNNNNGGGGGGGGkk....","....kkCNGCmYZZZYnNNGGGGGHGGHmhGHGGGGGGGGGGGGGGGGccchGGGGGGGGGGGGGGGGGGHHGhGGGGgggggggggggGGGGGGGGGkk....","....kkCNGCmNdddNNdgGgddgGhdGmhGGdddddddGgddddddkccchGddddddgGgdddddgGHHHGhGdddddGgddddddkGGGGGGGGGkk....","....kkCNGCmNdddssdgGgdgGdddGmhGGddddddhGGddddddkccchGddddddgGgddddggGHHHGhGddddhGGddddddkGGGGGGGGGkk....","....kkCNGCmNdddssdgGgGgddddGmhGGddddddhGGddddddkccchGddddddgGgddhGgdGHHHGhGddddhGGddddddkGGGGGGGGGkk....","....kkCNGCmYsssYsdgGGgdddddGmhGGddddddhGGddddddkccchGddddddgGgdhGgddGHHHGhGddddhGGddddddkGGGGGGGGGkk....","....kkCNGCmYsssYsdgGgddddddGmhGGddddddhGGddddddkccchGddddddgGggGgdddGHHHGhGddddhGGddddddkGGGGGGGGGkk....","....kkCNGCmNdddssgGGgddddddGmhGGddddddhGGddddddkccchGddddddgGGGgddddGHHHGhGddddhGGddddddkGGGGGGGGGkk....","....kkCNGCmNdddssGGGgddddddGmhGGddddddhGGddddddkccchGddddddgGGhdddddGHHHGhGddddhGGddddddkGGGGGGGGGkk....","....kkCNGCmNdddsshgGgddddddGmhGGddddddhGGddddddkccchGddddddGGgddddddGHHHGhGddddhGGddddddkGGGGGGGGGkk....","....kkCNGCmYsssfsdgGgddddddGmhGGddddddhGGddddddkccchGdddddGGGgddddddGHHHGhGddddhGGddddddkGGGGGGGGGkk....","....kkCNGCmYsnsYsdgGgddddddGmhGGddddddhGGddddddkccchGdddhGggGgddddddGHHHGhGddddhGGddddddkGGGGGGGGGkk....","....kkCGGcfsGghsshgGghhhhhhGcgGGhhhhhhhGGhhhhhhdHHHgGhhhGghgGghhhhhhGNNNGgGhhhhhGGhhhhhhdGGGGGGGGGkk....","....kkcTTTssTTTssTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTgkk....","....kkHsssYYsssYYsssssssssssSsssssssssssssssssssssSsssssssssssssssssssssSssssssssssssssssssssssssgkk....","....kkHSSSYfYYYfYSSSSSSSSSSSTSSSSSSSSSSSSSSSSSSSSSTSSSSSSSSSSSSSSSSSSSSSTSSSSSSSSSSSSSSSSSSSSSSSSgkk....","....kkcGgNnyfffynGGGGGGGGGGGGhgGGGGGGGGGGGGGGGGGGGGhgGGGGGGGGGGGGGGGGGGGGhgGGGGGGGGgggggggggggggggkk....","....kkkkGGnnGGGnnGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGGkkkk....","....kkkdgkZZkkkZZkkkkkkkkkkkkdgkkkkkkkkkkkkkkkkkkdgdgkkkkkkkkkkkkkkkkkkkkdgkkkkkkkkkkkkkkkkkkdgghkkk....","....kkNGGNnnNNNnnNNNNNNNNNNNNhGNNNNNNNNNNNNNNNNNGGNhGNNNNNNNNNNNNNNNNNNNNhGNNNNNNNNNNNNNNNNNGGNGGNkk....","....kkmNGmmyfffymmmcccccccccchGccccccccccccccccHGHchGccccccccccHHHHHHHHHHhGHHHHHHHHNNNNNNNGGGGGGGGkk....","....kkCNGCmYZZZYnNNGGGGGGGGHmhGHGGGGGGGGGGGGGGNGccchGGGGGGGGGGGGGGGGNHHHGhGGGGgggggggggggGGGGGGGGGkk....","....kkCNGCmNbbbnnbbbbbbbBBvGmhGGBbbbbbbbbbbbBGGdccchGbbbbbbbbbbbbBBvGHHHGhGbbbbbbbbbbBBBdGGGGGGGGGkk....","....kkCNGCmsuuummubbbbbbbbBGmhGGbuuuuubbbbbbGGbdccchGuuuuuubbbbbbbbBGHHHGhGuuuubbbbbbbbbGGGGGGGGGGkk....","....kkCNGCmNuuummubbbbbbbbBGmhGGbuuuuubbbbbGGbbdccchGuuuuuubbbbbbbbBGHHHGhGuuuubbbbbbbbGgGGGGGGGGGkk....","....kkCNGCmYmmmymubbbbbbbbBGmhGGbuuuuubbbbGGbbbdccchGuuuuuubbbbbbbbBGHHHGhGuuuubbbbbbbGGdGGGGGGGGGkk....","....kkCNGCmYmmmymubbbbbbbbBGmhGGbuuuuubbbGbbbbbdccchGuuuuuubbbbbbbbBGHHHGhGuuuubbbbbbGBbdGGGGGGGGGkk....","....kkCNGCmNuuummubbbbbbbbBGmhGGBuuuuubbGbbbbbbdccchGuuuuuubbbbbbbbBGHHHGhGuuuubbbbbGbbbdGGGGGGGGGkk....","....kkCNGCmNuuummubbbbbbbbBGmhGGBuuuuubGbbbbbbbdccchGuuuuuubbbbbbbbBGHHHGhGuuuubbbGGbbbbdGGGGGGGGGkk....","....kkCNGCmNuuummubbbbbbbbBGmhGGBuuuuHGbbbbbbbbdccchGuuuuuubbbbbbbbBGHHHGhGuuuubbGGbbbbbdGGGGGGGGGkk....","....kkCNGCmYnmmfmubbbbbbbbvGmhGGBuuuGNbbbbbbbbBdccchGuuuuuubbbbbbbbvGHHHGhGuuuubGGbbbbbBdGGGGGGGGGkk....","....kkCNGCmYnmmffubbbbbbBBvGmhGGBuuGHubbbbbbbBBdccchGuuuuuubbbbbbBBvGHHHGhGuuuuGGbbbbbBBdGGGGGGGGGkk....","....kkCGGcfsbbbnnbBBBBBBBBvGcgGGGbGGbbBBBBBBBBBhHHHgGbbbbbbBBBBBBBBvGNNNGgGbbbGGBBBBBBBBhGGGGGGGGGkk....","....kkcTTTssTTTssTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTgkk....","....kkHsssYYsssYYsssssssssssSsssssssssssssssssssssSsssssssssssssssssssssSssssssssssssssssssssssssgkk....","....kkHSSSYfYYYfYSSSSSSSSSSSTSSSSSSSSSSSSSSSSSSSSSTSSSSSSSSSSSSSSSSSSSSSTSSSSSSSSSSSSSSSSSSSSSSSSgkk....","....kkcGgNnyfffynGGGGGGGGGGGGhgGGGGGGGGGGGGGGGGGGGGhgGGGGGGGGGGGGGGGGGGGGhgGGGGGGGGgggggggggggggggkk....","....kkkkGGnnGGGnnGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGgGGGGGGGGGGGGGGGGGGGGGGkkkk....","....kkkdgkZZkkkZZkkkkkkkkkkdgdgkkkkkkkkkkkkkkkkkkkkdgkkkkkkkkkkkkkkkkkkdgdgkkkkkkkkkkkkkkkkkkkkghkkk....","....kkNGGNnnNNNnnNNNNNNNNNGGNhGNNNNNNNNNNNNNNNNNNNNhGNNNNNNNNNNNNNNNNNGGNhGNNNNNNNNNNNNNNNNNNNNGGNkk....","....kkmNGmmyfffymmmccccccHGcchGcccccccccccccccccccchGccccccccccHHHHHHHGHHhGHHHHHHHHNNNNNNNGGGGGGGGkk....","....kkCNGCmYZZZYnNNGGGGGHGGHmhGHGGGGGGGGGGGGGGGGccchGGGGGGGGGGGGGGGGGGHHGhGGGGgggggggggggGGGGGGGGGkk....","....kkCNGCmNbbbnnbbbbbbGGbvGmhGGBbbbbbbbbbbbBBBdccchGbbbbbbbbbbbbBBGGHHHGhGbbbbbbbbbbBBBdGGGGGGGGGkk....","....kkCNGCmsuuummubbbbGGbbBGmhGGbuuuuubbbbbbbbbdccchGuuuuuubbbbbbbGGGHHHGhGuuuubbbbbbbbbdGGGGGGGGGkk....","....kkCNGCmNuuummubbbGGbbbBGmhGGbuuuuubbbbbbbbbdccchGuuuuuubbbbbbGGBGHHHGhGuuuubbbbbbbbbdGGGGGGGGGkk....","..kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk..","..kyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyykkkkkkkkkkkkkkkkkkkkyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyk..","..kHcccccccHHccccccHHccccccHHccccccHHcccccccHckGGGGGGGGggGGGGGGGGkccHHccccccHHccccccHHcccccccHccccccck..","..kBbbbbbbbBbbbbbbbBBbbbbbbbBbbbbbbbBbbbbbbbBbkGGGGGGGGggGGGGGGGGkbbBBbbbbbbbBbbbbbbbBbbbbbbbBbbbbbbbk..","..kBbbbbbbbBbbbbbbbBBbbbbbbbBbbbbbbbBbbbbbbbBbkGGGGGGGGggGGGGGGGGkbbBBbbbbbbbBbbbbbbbBbbbbbbbBbbbbbbbk..","..kBbbbbbbbBbbbbbbbBBbbbbbbbBbbbbbbbBbbbbbbbBbkGGGGGGGGggGGGGGGGGkbbBBbbbbbbbBbbbbbbbBbbbbbbbBbbbbbbbk..","..kBbbbbbbbBbbbbbbbBBbbbbbbbBbbbbbbbBbbbbbbbBbkGGGGGGGGggGGGGGGGGkbbBBbbbbbbbBbbbbbbbBbbbbbbbBbbbbbbbk..","..kBbbbbbbbBbbbbbbbBBbbbbbbbBbbbbbbbBbbbbbbbBbkGGGGGGGGggGGGGGGGGkbbBBbbbbbbbBbbbbbbbBbbbbbbbBbbbbbbbk..","..kBbbbbbbbBbbbbbbbBBbbbbbbbBbbbbbbbBbbbbbbbBbkGGGGGGGGggGGGGGGGGkbbBBbbbbbbbBbbbbbbbBbbbbbbbBbbbbbbbk..","..kBbbbbbbbBbbbbbbbBBbbbbbbbBbbbbbbbBbbbbbbbBbkGGGGGGGGggGGGGGGGGkbbBBbbbbbbbBbbbbbbbBbbbbbbbBbbbbbbbk..","..kBbbbbbbbBbbbbbbbBBbbbbbbbBbbbbbbbBbbbbbbbBbkkkkkkkkkkkkkkkkkkkkbbBBbbbbbbbBbbbbbbbBbbbbbbbBbbbbbbbk..","..kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk..","....kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk....","....kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk....","........................................................................................................","........................................................................................................","........................................................................................................","........................................................................................................"],"depth":31},{"name":"scaffoldTower","rows":["....................dTTTTTTTd.....","....................TyyysyyyT.....","....................TyyYkYyyT.....","...kGGGGGGGGGGGGGGGGTyyYTYyyTGk...","...hggggggggggggggggTyyYTYyyTgg...","...gG...............dTTTTTTTdGG...","...gG...................GGG..GG...","...gG.................GGG....GG...","...gG................GG......GG...","...gG..............GGG.......GG...","...gG............GGG.........GG...","...gG...........GG...........GG...","...gG.........GGG............GG...","...gG.......GGG..............GG...","...gG......GG................GG...","...gG....GGG.................Gg...","...TTTTTTTTTTTTTTTTTTTTTTTTTTTT...","...ssssssssssssssssssssssssssssT..","...SSSSSSSSSSSSSSSSSSSSSSSSSSSSh..","...ggTTTTTTTTTTTTTTTTTTTTTTTTgg...","...kGGGGGGGGGGGGGGGGGGGGGGGGGGk...","...hg......................gggg...","...gG.....................GG.GG...","...gG...................GGG..GG...","...gG..................GG....GG...","...gG................GG......GG...","...gG..............GGG.......GG...","...gG.............GG.........GG...","...gG...........GG...........GG...","...gG.........GGG............GG...","...gG........GG..............GG...","...gG......GG................GG...","...gG....GGG.................Gg...","...TTTTTTTTTTTTTTTTTTTTTTTTTTTT...","...ssssssssssssssssssssssssssssT..","...SSSSSSSSSSSSSSSSSSSSSSSSSSSSh..","...gghhhhhhhhhhhhhhhhhhhhhhhhgg...","...kGGGGGGGGGGGGGGGGGGGGGGGGGGk...","...hg......................gggg...","...gG.....................GG.GG...","...gG...................GGG..GG...","...gG..................GG....GG...","...gG................GG......GG...","...gG..............GGG.......GG...","...gG.............GG.........GG...","...gG...........GG...........GG...","...gG.........GGG............GG...","...gG........GG..............GG...","...gG......GG................GG...","...gG....GGG.................Gg...","...TTTTTTTTTTTTTTTTTTTTTTTTTTTT...","...ssssssssssssssssssssssssssssT..","...SSSSSSSSSSSSSSSSSSSSSSSSSSSSh..","...gghhhhhhhhhhhhhhhhhhhhhhhhgg...","...kGGGGGGGGGGGGGGGGGGGGGGGGGGk...","...hg......................gggg...","...gG.....................GG.GG...","...gG...................GGG..GG...","...gG..................GG....GG...","...gG................GG......GG...","...gG..............GGG.......GG...","...gG.............GG.........GG...","...gG...........GG...........GG...","...gG.........GGG............GG...","...gG........GG..............GG...","...gG......GG................GG...","...gG....GGG.................Gg...","...TTTTTTTTTTTTTTTTTTTTTTTTTTTT...","...ssssssssssssssssssssssssssssT..","...SSSSSSSSSSSSSSSSSSSSSSSSSSSSh..","...gghhhhhhhhhhhhhhhhhhhhhhhhgg...","...kGGGGGGGGGGGGGGGGGGGGGGGGGGk...","...hg......................gggg...","...gG.....................GG.GG...","...gG...................GGG..GG...","...gG..................GG....GG...","...gG................GG......GG...","...gG..............GGG.......GG...","...gG.............GG.........GG...","...gG...........GG...........GG...","...gG.........GGG............GG...","...gG........GG..............GG...","...gG......GG................GG...","...gG....GGG.................Gg...","...sssTTTTTTTTTTTTTTTTTTTTTxsss...","...yyyFssssssssssssssssssssYyyyS..","..hTTTdSSSSSSSSSSSSSSSSSSSShTTTd..","..kkkkkhhhhhhhhhhhhhhhhhhhhkkkkk..","..kkkkk....................kkkkk..","..................................","..................................",".................................."],"depth":10}]};
+
+// --- geometry --------------------------------------------------------------
+// Faces are tinted a little even though the scene is really lit. A pure
+// side-lit extrusion goes ambiguous when the light lines up with a face, and a
+// sprite whose edges stop reading has lost the only thing 3D added.
+const TINT = { front: 1.0, back: 0.66, left: 0.9, right: 0.8, top: 1.0, bottom: 0.68 };
+
+function build(rows, PAL, depth) {
+  const h = rows.length;
+  const w = rows.reduce((m, r) => Math.max(m, r.length), 0);
+  const at = (x, y) => (y < 0 || y >= h || x < 0 || x >= rows[y].length ? '.' : rows[y][x]);
+
+  const pos = [];
+  const nor = [];
+  const col = [];
+  const hx = w / 2;
+  const hy = h / 2;
+  const hz = depth / 2;
+
+  const cache = new Map();
+  const rgbOf = (ch, tint) => {
+    const key = ch + tint;
+    let v = cache.get(key);
+    if (!v) {
+      const c = new THREE.Color(PAL[ch]);
+      v = [c.r * tint, c.g * tint, c.b * tint];
+      cache.set(key, v);
+    }
+    return v;
+  };
+
+  // A quad as two triangles, with one normal and one colour throughout.
+  const quad = (a, b, c, d, n, rgb) => {
+    for (const v of [a, b, c, a, c, d]) {
+      pos.push(v[0], v[1], v[2]);
+      nor.push(n[0], n[1], n[2]);
+      col.push(rgb[0], rgb[1], rgb[2]);
+    }
+  };
+
+  for (let y = 0; y < h; y++) {
+    const Y1 = hy - y;
+    const Y0 = hy - y - 1;
+
+    // Front and back: merge runs of one colour into a single quad.
+    let x = 0;
+    while (x < w) {
+      const ch = at(x, y);
+      if (ch === '.') { x++; continue; }
+      let end = x;
+      while (end + 1 < w && at(end + 1, y) === ch) end++;
+      const X0 = x - hx;
+      const X1 = end + 1 - hx;
+      quad([X0, Y0, hz], [X1, Y0, hz], [X1, Y1, hz], [X0, Y1, hz],
+        [0, 0, 1], rgbOf(ch, TINT.front));
+      quad([X1, Y0, -hz], [X0, Y0, -hz], [X0, Y1, -hz], [X1, Y1, -hz],
+        [0, 0, -1], rgbOf(ch, TINT.back));
+      x = end + 1;
+    }
+
+    // Sides, only where the neighbour is empty. Interior walls are never seen.
+    for (let px = 0; px < w; px++) {
+      const ch = at(px, y);
+      if (ch === '.') continue;
+      const X0 = px - hx;
+      const X1 = px + 1 - hx;
+      if (at(px - 1, y) === '.') {
+        quad([X0, Y0, -hz], [X0, Y0, hz], [X0, Y1, hz], [X0, Y1, -hz],
+          [-1, 0, 0], rgbOf(ch, TINT.left));
+      }
+      if (at(px + 1, y) === '.') {
+        quad([X1, Y0, hz], [X1, Y0, -hz], [X1, Y1, -hz], [X1, Y1, hz],
+          [1, 0, 0], rgbOf(ch, TINT.right));
+      }
+      if (at(px, y - 1) === '.') {
+        quad([X0, Y1, hz], [X1, Y1, hz], [X1, Y1, -hz], [X0, Y1, -hz],
+          [0, 1, 0], rgbOf(ch, TINT.top));
+      }
+      if (at(px, y + 1) === '.') {
+        quad([X0, Y0, -hz], [X1, Y0, -hz], [X1, Y0, hz], [X0, Y0, hz],
+          [0, -1, 0], rgbOf(ch, TINT.bottom));
+      }
+    }
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.computeBoundingBox();
+  g.computeBoundingSphere();
+  return { geometry: g, width: w, height: h };
+}
+
+// --- scene -----------------------------------------------------------------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#14121a');
+
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.5, 2000);
+
+// Lighting is calibrated, not decorated. The sprite already has its light
+// baked in by the artist, so a front face has to come back out of the renderer
+// at the palette value it went in as — anything dimmer and the 3D version just
+// looks like a worse copy of the 2D one. tools/shoot3d.mjs --calibrate
+// measures exactly that and prints the error.
+scene.add(new THREE.AmbientLight('#b9c2d8', 0.88));
+scene.add(new THREE.HemisphereLight('#cfd6e8', '#3a3646', 1.61));
+const key = new THREE.DirectionalLight('#fff3d0', 3.78);
+key.position.set(-40, 60, 55);
+scene.add(key);
+// A cool light from behind so a silhouette never goes to a flat black hole
+// when the front face turns away.
+const rim = new THREE.DirectionalLight('#7fb0e0', 1.45);
+rim.position.set(50, 20, -45);
+scene.add(rim);
+
+// Ground: a soft radial patch, not a hard plane. A pixel sprite floating over
+// a crisp horizon looks pasted on; a fading pool of light reads as ground
+// without ever drawing a line the eye can catch.
+const gc = document.createElement('canvas');
+gc.width = gc.height = 256;
+const gx = gc.getContext('2d');
+const grd = gx.createRadialGradient(128, 128, 0, 128, 128, 128);
+grd.addColorStop(0, 'rgba(58,54,70,0.85)');
+grd.addColorStop(0.55, 'rgba(36,31,44,0.5)');
+grd.addColorStop(1, 'rgba(20,18,26,0)');
+gx.fillStyle = grd;
+gx.fillRect(0, 0, 256, 256);
+const groundTex = new THREE.CanvasTexture(gc);
+groundTex.colorSpace = THREE.SRGBColorSpace;
+
+const material = new THREE.MeshLambertMaterial({ vertexColors: true });
+
+// Lay the models out in a row, each standing on the ground, spaced by their
+// own widths so a building and a traffic cone both get room.
+const group = new THREE.Group();
+scene.add(group);
+const models = [];
+let cursor = 0;
+let tris = 0;
+
+for (const m of DATA.models) {
+  const { geometry, width, height } = build(m.rows, DATA.pal, m.depth);
+  tris += geometry.getAttribute('position').count / 3;
+  const mesh = new THREE.Mesh(geometry, material);
+  const holder = new THREE.Group();
+  holder.add(mesh);
+  // Sit the feet on y=0 rather than centring on the origin: these are objects
+  // that stand on a jobsite, and floating breaks that instantly.
+  mesh.position.y = height / 2;
+
+  const pad = Math.max(6, width * 0.6);
+  cursor += width / 2 + (models.length ? pad : 0);
+  holder.position.x = cursor;
+  cursor += width / 2;
+
+  const disc = new THREE.Mesh(
+    new THREE.PlaneGeometry(width * 2.6, width * 2.6),
+    new THREE.MeshBasicMaterial({ map: groundTex, transparent: true, depthWrite: false }),
+  );
+  disc.rotation.x = -Math.PI / 2;
+  disc.position.y = 0.02;
+  holder.add(disc);
+
+  group.add(holder);
+  models.push({ name: m.name, holder, mesh, width, height, depth: m.depth });
+}
+
+// Centre the row on the origin so orbiting feels like orbiting the group.
+const span = cursor;
+for (const m of models) m.holder.position.x -= span / 2;
+
+// --- camera rig ------------------------------------------------------------
+// Written out rather than pulled from OrbitControls: this needs about forty
+// lines of it, and vendoring a second file to get them is a bad trade.
+const target = new THREE.Vector3();
+const want = { yaw: 0.6, pitch: 0.34, dist: 60, tx: 0, ty: 0 };
+const now = { ...want };
+let focus = -1;
+
+/**
+ * Distance at which a box of `w` x `h` exactly fills the frame.
+ *
+ * Worked out rather than guessed at, because a fudge factor that frames one
+ * model nicely puts a row of eight off the edges and a single traffic cone in
+ * the far distance. The extra `deep` term backs off far enough that the
+ * nearest corner does not clip when the model turns side on.
+ */
+function fitDistance(w, h, deep, margin) {
+  const tan = Math.tan((camera.fov * Math.PI) / 360);
+  return Math.max(h / 2 / tan, w / 2 / (tan * camera.aspect)) * margin + deep;
+}
+
+function frame(i) {
+  focus = i;
+  // World matrices are only refreshed during a render, and this runs once
+  // before the first one. Without this the boxes come back in local space —
+  // every model measured as if it stood at the origin, so a row of eight
+  // framed as tightly as a single sprite.
+  scene.updateMatrixWorld(true);
+  if (i < 0) {
+    // Measure the models, not the group: the ground discs are far wider than
+    // what they sit under, and framing to them leaves everything tiny.
+    const box = new THREE.Box3();
+    for (const m of models) box.union(new THREE.Box3().setFromObject(m.mesh));
+    const size = box.getSize(new THREE.Vector3());
+    const mid = box.getCenter(new THREE.Vector3());
+    want.tx = mid.x;
+    want.ty = mid.y;
+    want.dist = fitDistance(size.x, size.y, size.z, 1.18);
+    label.textContent = models.length > 1 ? `${models.length} models` : models[0].name;
+  } else {
+    const m = models[i];
+    want.tx = m.holder.position.x;
+    want.ty = m.height / 2;
+    // A single model is framed loosely: it is about to be orbited, and a tight
+    // fit means it swings out of shot the moment it turns.
+    want.dist = fitDistance(m.width, m.height, m.depth || 8, 1.5);
+    label.textContent = m.name;
+  }
+}
+
+const label = document.getElementById('name');
+const stats = document.getElementById('stats');
+
+// --- input -----------------------------------------------------------------
+let spin = true;
+let dragging = false;
+let lastX = 0;
+let lastY = 0;
+const touches = new Map();
+let pinch = 0;
+
+const el = renderer.domElement;
+el.addEventListener('pointerdown', (e) => {
+  el.setPointerCapture(e.pointerId);
+  touches.set(e.pointerId, [e.clientX, e.clientY]);
+  dragging = true;
+  lastX = e.clientX;
+  lastY = e.clientY;
+  moved = false;
+});
+let moved = false;
+el.addEventListener('pointermove', (e) => {
+  if (!touches.has(e.pointerId)) return;
+  touches.set(e.pointerId, [e.clientX, e.clientY]);
+
+  if (touches.size >= 2) {
+    const [a, b] = [...touches.values()];
+    const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    if (pinch) want.dist = Math.max(8, Math.min(600, want.dist * (pinch / d)));
+    pinch = d;
+    moved = true;
+    return;
+  }
+  if (!dragging) return;
+  const dx = e.clientX - lastX;
+  const dy = e.clientY - lastY;
+  if (Math.abs(dx) + Math.abs(dy) > 3) { moved = true; spin = false; sync(); }
+  want.yaw -= dx * 0.008;
+  want.pitch = Math.max(-0.4, Math.min(1.35, want.pitch + dy * 0.006));
+  lastX = e.clientX;
+  lastY = e.clientY;
+});
+const release = (e) => {
+  touches.delete(e.pointerId);
+  if (touches.size < 2) pinch = 0;
+  if (!touches.size) {
+    dragging = false;
+    if (!moved) pick(e);
+  }
+};
+el.addEventListener('pointerup', release);
+el.addEventListener('pointercancel', release);
+addEventListener('wheel', (e) => {
+  e.preventDefault();
+  want.dist = Math.max(8, Math.min(600, want.dist * (1 + Math.sign(e.deltaY) * 0.12)));
+}, { passive: false });
+
+// Tap a model to frame it; tap the background to go back to the whole row.
+const ray = new THREE.Raycaster();
+function pick(e) {
+  const p = new THREE.Vector2(
+    (e.clientX / innerWidth) * 2 - 1,
+    -(e.clientY / innerHeight) * 2 + 1,
+  );
+  ray.setFromCamera(p, camera);
+  const hit = ray.intersectObjects(models.map((m) => m.mesh), false)[0];
+  if (!hit) { frame(-1); return; }
+  frame(models.findIndex((m) => m.mesh === hit.object));
+}
+
+const spinBtn = document.getElementById('spin');
+const wireBtn = document.getElementById('wire');
+function sync() {
+  spinBtn.setAttribute('aria-pressed', String(spin));
+  wireBtn.setAttribute('aria-pressed', String(material.wireframe));
+}
+spinBtn.onclick = () => { spin = !spin; sync(); };
+wireBtn.onclick = () => { material.wireframe = !material.wireframe; sync(); };
+// Cycle -1 (the whole row), then each model, then back to -1.
+document.getElementById('next').onclick = () => {
+  frame(focus + 1 >= models.length ? -1 : focus + 1);
+};
+addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') frame(Math.min(models.length - 1, focus + 1));
+  if (e.key === 'ArrowLeft') frame(Math.max(-1, focus - 1));
+  if (e.key === ' ') { spin = !spin; sync(); e.preventDefault(); }
+});
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  frame(focus);
+});
+
+// --- loop ------------------------------------------------------------------
+frame(models.length === 1 ? 0 : -1);
+sync();
+stats.textContent = `${tris.toLocaleString()} triangles`;
+
+let last = performance.now();
+function tick(t) {
+  const dt = Math.min(0.05, (t - last) / 1000);
+  last = t;
+  if (spin) want.yaw += dt * 0.35;
+
+  // Ease toward the wanted rig so focus changes glide instead of snapping.
+  const k = 1 - Math.pow(0.0025, dt);
+  for (const key of ['yaw', 'pitch', 'dist', 'tx', 'ty']) {
+    now[key] += (want[key] - now[key]) * k;
+  }
+
+  target.set(now.tx, now.ty, 0);
+  camera.position.set(
+    now.tx + Math.sin(now.yaw) * Math.cos(now.pitch) * now.dist,
+    now.ty + Math.sin(now.pitch) * now.dist,
+    Math.cos(now.yaw) * Math.cos(now.pitch) * now.dist,
+  );
+  camera.lookAt(target);
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// Handles for the capture harness: a screenshot tool needs to park the rig at
+// a known angle rather than catching the spin wherever it happened to be.
+window.IMG2THREE = {
+  models, renderer, scene, camera, tris, frame, THREE,
+  setYaw(v) { want.yaw = v; now.yaw = v; },
+  setPitch(v) { want.pitch = v; now.pitch = v; },
+  setSpin(v) { spin = v; sync(); },
+  settled() { return Math.abs(want.dist - now.dist) < 0.05; },
+};
+</script>
+</body>
+</html>

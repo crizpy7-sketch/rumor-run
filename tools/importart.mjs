@@ -94,106 +94,26 @@ async function main() {
 
   const result = await page.evaluate(async ({ dir, names, alphaCut, ssMin, forceHeight }) => {
     const { PAL, ART } = await import('/src/art/sprites.js');
-
-    const keys = Object.keys(PAL);
-    const rgb = keys.map((k) => {
-      const h = PAL[k];
-      return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
-    });
-    const nearest = (r, g, b) => {
-      let best = 0;
-      let bestD = Infinity;
-      for (let i = 0; i < rgb.length; i++) {
-        const dr = (r - rgb[i][0]) * 0.5;
-        const dg = (g - rgb[i][1]) * 0.7;
-        const db = (b - rgb[i][2]) * 0.3;
-        const d = dr * dr + dg * dg + db * db;
-        if (d < bestD) { bestD = d; best = i; }
-      }
-      return keys[best];
-    };
-
-    const load = (src) => new Promise((res, rej) => {
-      const img = new Image();
-      img.onload = () => res(img);
-      img.onerror = () => rej(new Error(`could not load ${src}`));
-      img.src = src;
-    });
+    const { snapper, imageToRows } = await import('/tools/quantise.js');
+    const snap = snapper(PAL);
 
     const out = {};
     const report = [];
     for (const file of names) {
       const name = file.replace(/\.png$/i, '');
-      const img = await load(`/${dir}/${file}`);
-
-      // Trim transparent margins so the artwork itself decides the bounds —
-      // generated images almost always arrive with uneven padding.
-      const probe = document.createElement('canvas');
-      probe.width = img.naturalWidth;
-      probe.height = img.naturalHeight;
-      const pctx = probe.getContext('2d');
-      pctx.drawImage(img, 0, 0);
-      const pd = pctx.getImageData(0, 0, probe.width, probe.height).data;
-      let x0 = probe.width; let y0 = probe.height; let x1 = -1; let y1 = -1;
-      for (let y = 0; y < probe.height; y++) {
-        for (let x = 0; x < probe.width; x++) {
-          if (pd[((y * probe.width) + x) * 4 + 3] > 12) {
-            if (x < x0) x0 = x;
-            if (y < y0) y0 = y;
-            if (x > x1) x1 = x;
-            if (y > y1) y1 = y;
-          }
-        }
-      }
-      const opaque = x1 >= x0 && y1 >= y0;
-      if (!opaque) { x0 = 0; y0 = 0; x1 = probe.width - 1; y1 = probe.height - 1; }
-      const cropW = x1 - x0 + 1;
-      const cropH = y1 - y0 + 1;
-
-      // Target size: match what the game already uses for this sprite, so an
+      // Target height: whatever the game already draws this sprite at, so an
       // import is a drop-in replacement and nothing downstream shifts.
       const existing = ART[name];
       const targetH = forceHeight || (existing ? existing.length : 24);
-      const targetW = Math.max(1, Math.round(cropW * (targetH / cropH)));
-
-      // Draw big, then box-filter down: browser downscaling alone leaves soft
-      // edges that quantise into mud.
-      const ss = Math.max(ssMin, Math.ceil(64 / targetH));
-      const cv = document.createElement('canvas');
-      cv.width = targetW * ss;
-      cv.height = targetH * ss;
-      const ctx = cv.getContext('2d');
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(img, x0, y0, cropW, cropH, 0, 0, cv.width, cv.height);
-
-      const data = ctx.getImageData(0, 0, cv.width, cv.height).data;
-      const rows = [];
-      for (let y = 0; y < targetH; y++) {
-        let row = '';
-        for (let x = 0; x < targetW; x++) {
-          let r = 0; let g = 0; let b = 0; let a = 0;
-          for (let sy = 0; sy < ss; sy++) {
-            for (let sx = 0; sx < ss; sx++) {
-              const i = (((y * ss + sy) * cv.width) + (x * ss + sx)) * 4;
-              const al = data[i + 3] / 255;
-              r += data[i] * al; g += data[i + 1] * al; b += data[i + 2] * al; a += al;
-            }
-          }
-          const n = ss * ss;
-          if (a / n < alphaCut) { row += '.'; continue; }
-          row += nearest(r / a, g / a, b / a);
-        }
-        rows.push(row);
-      }
-      out[name] = rows;
+      const got = await imageToRows(`/${dir}/${file}`, { targetH, alphaCut, ssMin, snap });
+      out[name] = got.rows;
       report.push({
         name,
-        source: `${img.naturalWidth}x${img.naturalHeight}`,
-        cropped: `${cropW}x${cropH}`,
-        result: `${targetW}x${targetH}`,
+        source: got.source,
+        cropped: got.cropped,
+        result: got.result,
         replaced: !!existing,
-        hadAlpha: opaque && (cropW < probe.width || cropH < probe.height),
+        hadAlpha: got.trimmed,
       });
     }
     return { sprites: out, report };
