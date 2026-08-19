@@ -4,6 +4,7 @@
 import { drawText, textWidth, wrapText } from '../art/glyphs.js';
 import { drawSprite } from '../art/sprites.js';
 import { VIEW_W, VIEW_H } from './road.js';
+import { fidelityTier, rumorAt } from './rumor.js';
 
 const INK = '#14121a';
 const PAPER = '#fdf6e0';
@@ -11,6 +12,10 @@ const GOLD = '#ffd24a';
 const LIME = '#c8e04a';
 const EMBER = '#ff7a3d';
 const DIM = '#8b8598';
+
+// HUD-only state. Keeping this outside the run model means the presentation can
+// react to deliveries without changing simulation, scoring, replays, or tests.
+const rumorPulse = new WeakMap();
 
 function panel(ctx, x, y, w, h, alpha = 0.72) {
   ctx.save();
@@ -26,6 +31,59 @@ function tape(ctx, x, y, w, h = 3, a = GOLD, b = '#26242c') {
     ctx.fillStyle = ((i / 6) | 0) % 2 ? a : b;
     ctx.fillRect(x + i, y, Math.min(6, w - i), h);
   }
+}
+
+function rumorColour(tier) {
+  if (tier === 'clear') return LIME;
+  if (tier === 'muddled') return GOLD;
+  return EMBER;
+}
+
+function rumorLabel(tier) {
+  if (tier === 'clear') return 'RUMOR CLEAN';
+  if (tier === 'muddled') return 'RUMOR TWISTING';
+  return 'RUMOR CHAOS';
+}
+
+function drawRumorPulse(ctx, { level, run, sup }) {
+  let ui = rumorPulse.get(run);
+  if (!ui) {
+    ui = { lastDelivered: run.delivered, flashUntil: 0 };
+    rumorPulse.set(run, ui);
+  }
+
+  if (run.delivered !== ui.lastDelivered) {
+    if (run.delivered > ui.lastDelivered) ui.flashUntil = run.time + 1.8;
+    ui.lastDelivered = run.delivered;
+  }
+
+  if (run.delivered <= 0) {
+    drawText(ctx, 'RUMOR FRESH', VIEW_W / 2, 14, { color: DIM, align: 'center' });
+    return;
+  }
+
+  const tier = fidelityTier(run);
+  const colour = rumorColour(tier);
+  drawText(ctx, rumorLabel(tier), VIEW_W / 2, 14, { color: colour, align: 'center' });
+
+  // Do not cover the superintendent warning when it becomes urgent.
+  const superUrgent = sup && sup.active && (run && sup.s !== undefined) && false;
+  const shouldPulse = (run.time < ui.flashUntil || run.finished) && !superUrgent;
+  if (!shouldPulse) return;
+
+  const preview = rumorAt(level.id - 1, tier);
+  const lines = wrapText(preview, 172).slice(0, 3);
+  const w = 196;
+  const h = 17 + lines.length * 10;
+  const x = Math.round((VIEW_W - w) / 2);
+  const y = 31;
+
+  panel(ctx, x, y, w, h, 0.88);
+  tape(ctx, x, y, w, 2, colour);
+  drawText(ctx, 'THE STORY IS BECOMING', VIEW_W / 2, y + 5, { color: DIM, align: 'center' });
+  lines.forEach((line, i) => {
+    drawText(ctx, line, VIEW_W / 2, y + 15 + i * 10, { color: colour, align: 'center' });
+  });
 }
 
 export function drawHud(ctx, { level, run, buggy, route, stats, sup }) {
@@ -51,6 +109,9 @@ export function drawHud(ctx, { level, run, buggy, route, stats, sup }) {
     ctx.fillRect(ticksX + i * tickW, 15, 3, 8);
   }
   drawText(ctx, 'PAPER', ticksX - 40, 14, { color: DIM });
+
+  // The mutation mechanic should be legible during the run, not only after it.
+  drawRumorPulse(ctx, { level, run, sup });
 
   // --- active rumor fuel ------------------------------------------------
   const active = [];
