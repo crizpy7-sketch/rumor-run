@@ -45,7 +45,7 @@ function rumorLabel(tier) {
   return 'RUMOR CHAOS';
 }
 
-function drawRumorPulse(ctx, { level, run, sup }) {
+function drawRumorPulse(ctx, { level, run }) {
   let ui = rumorPulse.get(run);
   if (!ui) {
     ui = { lastDelivered: run.delivered, flashUntil: 0 };
@@ -66,10 +66,7 @@ function drawRumorPulse(ctx, { level, run, sup }) {
   const colour = rumorColour(tier);
   drawText(ctx, rumorLabel(tier), VIEW_W / 2, 14, { color: colour, align: 'center' });
 
-  // Do not cover the superintendent warning when it becomes urgent.
-  const superUrgent = sup && sup.active && (run && sup.s !== undefined) && false;
-  const shouldPulse = (run.time < ui.flashUntil || run.finished) && !superUrgent;
-  if (!shouldPulse) return;
+  if (!(run.time < ui.flashUntil || run.finished)) return;
 
   const preview = rumorAt(level.id - 1, tier);
   const lines = wrapText(preview, 172).slice(0, 3);
@@ -111,7 +108,7 @@ export function drawHud(ctx, { level, run, buggy, route, stats, sup }) {
   drawText(ctx, 'PAPER', ticksX - 40, 14, { color: DIM });
 
   // The mutation mechanic should be legible during the run, not only after it.
-  drawRumorPulse(ctx, { level, run, sup });
+  drawRumorPulse(ctx, { level, run });
 
   // --- active rumor fuel ------------------------------------------------
   const active = [];
