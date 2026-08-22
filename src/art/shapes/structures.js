@@ -74,10 +74,13 @@ function gcsLetters(ctx, P, x, y, size) {
   ctx.lineTo(cx + r * 0.15, y + r);
   ctx.stroke();
 
-  // C
+  // C — the opening has to face right. This shared the G's arc, which sweeps
+  // right → bottom → left and stops at the upper left, leaving the gap across
+  // the top. A gap at the top is a U, and the sign read GUS for as long as it
+  // existed. Sweeping the other way puts the 90° gap on the +x axis instead.
   cx = x + size * 1.35 + r;
   ctx.beginPath();
-  ctx.arc(cx, y + r, r, -0.42, Math.PI * 1.42, false);
+  ctx.arc(cx, y + r, r, -Math.PI * 0.25, Math.PI * 0.25, true);
   ctx.stroke();
 
   // S — one continuous spine. Built from two opposed arcs it came out as a
