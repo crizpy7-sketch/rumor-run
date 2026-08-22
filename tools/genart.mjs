@@ -21,7 +21,7 @@
 import { chromium } from 'playwright';
 import { writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { serve } from './serve.mjs';
 import { launchOptions } from './browser.mjs';
 
@@ -183,7 +183,21 @@ async function main() {
     return;
   }
 
-  const out = result.sprites;
+  // `--only` compiles a subset, but the file it writes is the *whole* compiled
+  // art table — so writing just the subset silently deletes every other sprite
+  // and the game stops booting. Merge over what is already on disk. Existing
+  // keys keep their position, so a one-sprite recompile is a one-sprite diff.
+  let out = result.sprites;
+  if (only) {
+    const url = pathToFileURL(join(ROOT, 'src/art/generated.js')).href;
+    try {
+      const { GENERATED } = await import(`${url}?t=${Date.now()}`);
+      out = { ...GENERATED, ...result.sprites };
+    } catch {
+      // No previous file, or it is unreadable: the subset is all there is.
+    }
+  }
+
   const body = Object.entries(out)
     .map(([name, rows]) => `  ${name}: [\n${rows.map((r) => `    '${r}',`).join('\n')}\n  ],`)
     .join('\n');
