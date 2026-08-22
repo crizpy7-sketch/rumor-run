@@ -115,6 +115,7 @@ export function createTitleScene(game) {
     const ctx = game.ctx;
     road.drawGround(ctx);
     road.drawSurface(ctx);
+    road.drawDepth(ctx);
 
     const items = [];
     for (const c of crews) {
@@ -407,6 +408,7 @@ export function createEndingScene(game) {
     if (stage === 0) {
       road.drawGround(ctx);
       road.drawSurface(ctx);
+    road.drawDepth(ctx);
 
       const gateS = 30;
       // The compound: fence line, floodlight, and the trailer itself.

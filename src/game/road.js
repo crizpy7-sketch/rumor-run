@@ -48,50 +48,94 @@ export const LATERAL_PX = PPM / ROAD.cos;
 // Each theme is a full grade, not just a tint: the dirt, the tarmac, the paint
 // and the light all move together, so a night shift reads as a different place
 // rather than the same place with a filter over it.
+/**
+ * Six full colour grades for the route.
+ *
+ * These are built to a value structure, not picked by eye. Two numbers decide
+ * whether a scene reads as a place or as mud:
+ *
+ *   Spread. The terrain tones have to cover a real range. The first version of
+ *   this table put every tone between luminance 51 and 104 — a 53-wide band out
+ *   of 255, all midtones, no darks and no lights — and the result looked
+ *   exactly as flat as that sounds. Each grade now spans roughly 30 to 150.
+ *
+ *   Material break. Dirt is warm and asphalt is cool, so the road separates
+ *   from the ground by hue as well as by value and stops reading as more dirt.
+ *
+ * `depth` and `depthAmt` drive the atmospheric ramp in drawDepth(): the colour
+ * distance drifts toward, and how much of it lands at the top of the screen.
+ */
 export const THEMES = {
   day: {
-    ground: '#6b5a3e', groundAlt: '#5e4e34', groundLo: '#514229', tuft: '#8a9c3a',
-    asphalt: '#3f3c47', asphaltAlt: '#484552', patch: '#35323c', crack: '#2a2830',
-    shoulder: '#7a6647', shoulderAlt: '#6a5839', rut: '#5a4a30',
-    kerbA: '#ffd24a', kerbB: '#2a2630', line: '#efe4c4', oil: '#332f38',
-    haze: null, vignette: 0.22, rain: 0, lightPool: 0,
+    groundHi: '#ab9059', groundMid: '#8e7245', ground: '#7a6039', groundAlt: '#66502f',
+    groundLo: '#473827', groundDeep: '#2a2430', tuft: '#8a9c3a',
+    asphalt: '#33313d', asphaltAlt: '#3b3946', patch: '#2a2833', crack: '#1e1c25',
+    shoulder: '#9b8355', shoulderAlt: '#87703f', rut: '#453520',
+    kerbA: '#ffd24a', kerbB: '#241f2c', line: '#efe4c4', oil: '#22202a',
+    depth: '#d8bd88', depthAmt: 0.34,
+    sun: '#ffe6a8', sunAmt: 0.13, shade: '#2a2438', shadeAmt: 0.20,
+    haze: null, vignette: 0.26, rain: 0, lightPool: 0,
   },
   dust: {
-    ground: '#7f6a44', groundAlt: '#705d38', groundLo: '#63512f', tuft: '#96a03c',
-    asphalt: '#474049', asphaltAlt: '#514a55', patch: '#3d3740', crack: '#312c33',
-    shoulder: '#8d7551', shoulderAlt: '#7c6543', rut: '#6b5636',
-    kerbA: '#ffd24a', kerbB: '#3a3028', line: '#efe4c4', oil: '#3a343c',
-    haze: 'rgba(206,166,96,0.15)', vignette: 0.24, rain: 0, lightPool: 0,
+    groundHi: '#c1a366', groundMid: '#a48453', ground: '#8d7143', groundAlt: '#775f36',
+    groundLo: '#55432c', groundDeep: '#332b33', tuft: '#96a03c',
+    asphalt: '#3a3742', asphaltAlt: '#43404c', patch: '#2f2d38', crack: '#232128',
+    shoulder: '#b09260', shoulderAlt: '#9a7f4a', rut: '#523e23',
+    kerbA: '#ffd24a', kerbB: '#2a2430', line: '#efe4c4', oil: '#272531',
+    depth: '#e8c98c', depthAmt: 0.46,
+    sun: '#ffeab4', sunAmt: 0.16, shade: '#33283a', shadeAmt: 0.18,
+    haze: 'rgba(206,166,96,0.13)', vignette: 0.26, rain: 0, lightPool: 0,
   },
   wet: {
-    ground: '#4c4a3c', groundAlt: '#413f33', groundLo: '#37352b', tuft: '#6d7f33',
-    asphalt: '#33323d', asphaltAlt: '#3b3a47', patch: '#2b2a34', crack: '#232229',
-    shoulder: '#585240', shoulderAlt: '#4b4636', rut: '#3f3a2c',
-    kerbA: '#e7c04a', kerbB: '#26242c', line: '#d7cfb4', oil: '#26252e',
-    haze: 'rgba(78,102,132,0.18)', vignette: 0.3, rain: 1, lightPool: 0,
+    groundHi: '#726b52', groundMid: '#5f5a44', ground: '#4f4a38', groundAlt: '#423e2f',
+    groundLo: '#2e2c26', groundDeep: '#1b1a22', tuft: '#6d7f33',
+    asphalt: '#2a2933', asphaltAlt: '#32313d', patch: '#211f29', crack: '#17161d',
+    shoulder: '#635c45', shoulderAlt: '#544e3a', rut: '#2c2a1e',
+    kerbA: '#e7c04a', kerbB: '#1e1c24', line: '#d7cfb4', oil: '#1a1922',
+    depth: '#8fa4bd', depthAmt: 0.38,
+    sun: '#cfe0f0', sunAmt: 0.09, shade: '#1c2434', shadeAmt: 0.26,
+    haze: 'rgba(78,102,132,0.16)', vignette: 0.32, rain: 1, lightPool: 0,
   },
   dusk: {
-    ground: '#4f4034', groundAlt: '#453629', groundLo: '#392d22', tuft: '#7a7c34',
-    asphalt: '#363039', asphaltAlt: '#3d3743', patch: '#2e2932', crack: '#262129',
-    shoulder: '#604c38', shoulderAlt: '#52402d', rut: '#463525',
-    kerbA: '#ffb84a', kerbB: '#221f28', line: '#e8d8b0', oil: '#2a252d',
-    haze: 'rgba(168,84,44,0.18)', vignette: 0.34, rain: 0, lightPool: 0.2,
+    groundHi: '#8a6a4c', groundMid: '#6f563e', ground: '#5c4835', groundAlt: '#4c3b2a',
+    groundLo: '#362a24', groundDeep: '#231b26', tuft: '#7a7c34',
+    asphalt: '#2e2932', asphaltAlt: '#36303b', patch: '#251f28', crack: '#1c171f',
+    shoulder: '#74593e', shoulderAlt: '#624a33', rut: '#3a2b1d',
+    kerbA: '#ffb84a', kerbB: '#1d1a22', line: '#e8d8b0', oil: '#221d26',
+    depth: '#e08a4a', depthAmt: 0.42,
+    sun: '#ffb066', sunAmt: 0.17, shade: '#2a1c34', shadeAmt: 0.26,
+    haze: 'rgba(168,84,44,0.15)', vignette: 0.36, rain: 0, lightPool: 0.2,
   },
   night: {
-    ground: '#2c2a30', groundAlt: '#252329', groundLo: '#1e1c22', tuft: '#4c5a26',
-    asphalt: '#26242c', asphaltAlt: '#2c2a34', patch: '#201f26', crack: '#1a191f',
-    shoulder: '#3a3440', shoulderAlt: '#312c36', rut: '#282430',
-    kerbA: '#ffd24a', kerbB: '#1b1a1f', line: '#b9b19a', oil: '#1d1c22',
-    haze: 'rgba(22,28,54,0.32)', vignette: 0.46, rain: 0, lightPool: 0.75,
+    groundHi: '#4a4653', groundMid: '#3b3845', ground: '#302d38', groundAlt: '#28262f',
+    groundLo: '#1e1c26', groundDeep: '#13131c', tuft: '#4c5a26',
+    asphalt: '#201f27', asphaltAlt: '#26252e', patch: '#1a1921', crack: '#131218',
+    shoulder: '#3e3a4a', shoulderAlt: '#332f3d', rut: '#232029',
+    kerbA: '#ffd24a', kerbB: '#161519', line: '#b9b19a', oil: '#17161c',
+    depth: '#2c3a6a', depthAmt: 0.44,
+    sun: '#8fa0d8', sunAmt: 0.07, shade: '#0e1020', shadeAmt: 0.34,
+    haze: 'rgba(22,28,54,0.28)', vignette: 0.48, rain: 0, lightPool: 0.75,
   },
   storm: {
-    ground: '#3c3a33', groundAlt: '#33322b', groundLo: '#2b2a24', tuft: '#5d6b2c',
-    asphalt: '#2c2b34', asphaltAlt: '#33323d', patch: '#25242c', crack: '#1e1d24',
-    shoulder: '#4a4437', shoulderAlt: '#3e392e', rut: '#342f26',
-    kerbA: '#e7c04a', kerbB: '#201f26', line: '#cfc7ad', oil: '#212028',
-    haze: 'rgba(52,72,104,0.26)', vignette: 0.42, rain: 1.6, lightPool: 0.45,
+    groundHi: '#5e5a4c', groundMid: '#4d4a3f', ground: '#3f3d34', groundAlt: '#35342c',
+    groundLo: '#272621', groundDeep: '#18181f', tuft: '#5d6b2c',
+    asphalt: '#25242d', asphaltAlt: '#2c2b35', patch: '#1e1d25', crack: '#17161c',
+    shoulder: '#524b3c', shoulderAlt: '#453f32', rut: '#2b2820',
+    kerbA: '#e7c04a', kerbB: '#1a191f', line: '#cfc7ad', oil: '#1b1a21',
+    depth: '#6a7f9c', depthAmt: 0.42,
+    sun: '#a8bcd4', sunAmt: 0.08, shade: '#181e2c', shadeAmt: 0.30,
+    haze: 'rgba(52,72,104,0.22)', vignette: 0.44, rain: 1.6, lightPool: 0.45,
   },
 };
+
+/** '#rrggbb' + alpha -> an rgba() string, for gradient stops. */
+function hexA(hex, a) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
 
 export class Road {
   constructor(theme = 'day') {
@@ -152,74 +196,113 @@ export class Road {
    * then grit, then weeds — because one uniform fill reads as a colour, and a
    * jobsite should read as churned ground.
    */
+  /**
+   * The ground either side of the route.
+   *
+   * Drawn as four layers at falling scale, and the order of importance is the
+   * whole point. The first version carried nearly all of its variation in
+   * scattered mid-contrast rectangles two metres across — which the eye reads
+   * as speckle, not as terrain, and which left sixty percent of the screen an
+   * undifferentiated brown field.
+   *
+   * Now the *value* lives in the broad layer and the *texture* is almost
+   * contrast-free on top of it. That is the difference between ground with
+   * shape and ground with noise.
+   *
+   * Everything here may paint straight across the route: drawSurface() runs
+   * afterwards and covers it.
+   */
   drawGround(ctx) {
     const p = this.palette;
     ctx.fillStyle = p.ground;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
-    const s0 = Math.floor((this.camS - this.viewBehind) / 4) * 4;
+    const s0 = Math.floor((this.camS - this.viewBehind) / 2) * 2;
     const s1 = this.camS + this.viewAhead;
 
-    // Broad patchwork: soft cells of slightly different dirt, so the ground has
-    // shape at a distance instead of only texture up close. Kept small and
-    // jittered off the lattice — big aligned rectangles read as tiling, which
-    // is worse than no variation at all.
-    for (let s = s0; s < s1; s += 2.5) {
-      for (let t = -34; t <= 34; t += 3) {
-        if (Math.abs(t) < ROAD.edge - 1) continue;
-        const h = hash2(s * 0.13, t * 0.17);
-        if (h < 0.62) continue;
-        ctx.fillStyle = h > 0.87 ? p.groundLo : p.groundAlt;
-        const jx = (hash2(s, t) - 0.5) * 3;
-        const jy = (hash2(t, s) - 0.5) * 2.4;
-        const x = this.projectX(s, t) + jx;
-        const y = this.projectY(s, t) + jy;
-        if (x < -30 || x > VIEW_W + 30 || y < -30 || y > VIEW_H + 30) continue;
-        const w = 5 + ((h * 9) | 0);
-        ctx.fillRect((x - w / 2) | 0, y | 0, w, 3 + ((h * 3) | 0));
+    // --- 1. broad terrain, ~12 m across -----------------------------------
+    // Two octaves, so the regions have edges that wander instead of sitting on
+    // a lattice. The tone steps are deliberately small and the extremes are
+    // rare: this layer is meant to give the ground *shape*, and if its local
+    // contrast rises much above this it stops reading as terrain and starts
+    // reading as brickwork. The darkest tone is not used here at all — it is
+    // reserved for the tracks, which are structure rather than texture.
+    for (let s = s0; s < s1; s += 2) {
+      for (let t = -36; t <= 36; t += 2) {
+        const n = noise2(s * 0.055, t * 0.055) * 0.68
+                + noise2(s * 0.17 + 5.5, t * 0.17 + 2.3) * 0.32;
+        let tone = null;
+        if (n < 0.30) tone = p.groundLo;
+        else if (n < 0.44) tone = p.groundAlt;
+        else if (n > 0.90) tone = p.groundHi;
+        else if (n > 0.74) tone = p.groundMid;
+        if (!tone) continue;
+        const x = this.projectX(s, t);
+        const y = this.projectY(s, t);
+        if (x < -24 || x > VIEW_W + 24 || y < -16 || y > VIEW_H + 16) continue;
+        ctx.fillStyle = tone;
+        // Jittered and oversized so cell edges overlap rather than tile.
+        const jx = (hash2(s, t) - 0.5) * 4;
+        ctx.fillRect((x - 8 + jx) | 0, (y - 3) | 0, 17, 7);
       }
     }
 
-    // Vehicle ruts running parallel to the route just off the shoulder: the
-    // strongest single cue that things drive here all day.
-    ctx.fillStyle = p.rut;
+    // --- 2. dried mud and spoil, ~3 m -------------------------------------
+    for (let s = s0; s < s1; s += 1.5) {
+      for (let t = -34; t <= 34; t += 2.5) {
+        const n = noise2(s * 0.3 + 11.3, t * 0.3 + 4.1);
+        if (n < 0.72) continue;
+        const x = this.projectX(s, t);
+        const y = this.projectY(s, t);
+        if (x < -14 || x > VIEW_W + 14 || y < -8 || y > VIEW_H + 8) continue;
+        ctx.fillStyle = n > 0.88 ? p.groundLo : p.groundAlt;
+        const w = 4 + ((n * 7) | 0);
+        ctx.fillRect((x - w / 2) | 0, y | 0, w, 2);
+      }
+    }
+
+    // --- 3. vehicle tracks ------------------------------------------------
+    // The strongest single cue that this is a working site rather than a
+    // verge. High contrast on purpose: this is structure, not texture.
     for (const side of [-1, 1]) {
       for (let k = 0; k < 2; k++) {
-        const t = side * (ROAD.edge + 1.1 + k * 1.5);
-        for (let s = s0; s < s1; s += 0.7) {
-          if (hash2(s * 0.9, t) < 0.25) continue;
+        const base = side * (ROAD.edge + 0.9 + k * 1.6);
+        for (let s = s0; s < s1; s += 0.5) {
+          // Wander, so the tracks curve the way a tyre actually does.
+          const t = base + (noise2(s * 0.06, k * 3.7 + side) - 0.5) * 1.5;
           const x = this.projectX(s, t) | 0;
           const y = this.projectY(s, t) | 0;
           if (x < 0 || x > VIEW_W || y < 0 || y > VIEW_H) continue;
+          ctx.fillStyle = hash2(s * 1.7, k) > 0.4 ? p.groundDeep : p.rut;
           ctx.fillRect(x, y, 2, 1);
         }
       }
     }
 
-    // Grit.
-    ctx.fillStyle = p.groundAlt;
-    for (let s = s0; s < s1; s += 2) {
-      for (let t = -32; t <= 32; t += 2.2) {
+    // --- 4. grit, deliberately almost invisible ---------------------------
+    ctx.fillStyle = p.groundLo;
+    for (let s = s0; s < s1; s += 1.6) {
+      for (let t = -32; t <= 32; t += 1.8) {
+        if (Math.abs(t) < ROAD.edge + 0.4) continue;
         const h = hash2(s * 0.5, t * 0.4);
-        if (h < 0.42) continue;
-        if (Math.abs(t) < ROAD.edge + 0.6) continue;
-        const x = this.projectX(s + (h - 0.5) * 1.6, t);
-        const y = this.projectY(s + (h - 0.5) * 1.6, t);
-        if (x < -4 || x > VIEW_W + 4 || y < -4 || y > VIEW_H + 4) continue;
-        ctx.fillRect(x | 0, y | 0, h > 0.86 ? 2 : 1, 1);
+        if (h < 0.7) continue;
+        const x = this.projectX(s + (h - 0.5) * 1.6, t) | 0;
+        const y = this.projectY(s + (h - 0.5) * 1.6, t) | 0;
+        if (x < 0 || x > VIEW_W || y < 0 || y > VIEW_H) continue;
+        ctx.fillRect(x, y, 1, 1);
       }
     }
 
-    // Weeds, sparser still, with a little shadow so they sit on the ground.
-    for (let s = s0; s < s1; s += 4) {
-      for (let t = -30; t <= 30; t += 3.5) {
+    // --- 5. weeds, only where nothing drives ------------------------------
+    for (let s = s0; s < s1; s += 3) {
+      for (let t = -30; t <= 30; t += 3) {
         const h = hash2(s * 0.31 + 7.7, t * 0.53 + 3.1);
-        if (h < 0.86) continue;
-        if (Math.abs(t) < ROAD.edge + 1.2) continue;
+        if (h < 0.87) continue;
+        if (Math.abs(t) < ROAD.edge + 2.4) continue;
         const x = this.projectX(s, t) | 0;
         const y = this.projectY(s, t) | 0;
         if (x < 2 || x > VIEW_W - 2 || y < 2 || y > VIEW_H - 2) continue;
-        ctx.fillStyle = p.groundLo;
+        ctx.fillStyle = p.groundDeep;
         ctx.fillRect(x - 1, y + 1, 3, 1);
         ctx.fillStyle = p.tuft;
         ctx.fillRect(x, y - 2, 1, 3);
@@ -383,6 +466,57 @@ export class Road {
     }
   }
 
+  /**
+   * Atmospheric depth.
+   *
+   * The projection is a fixed oblique with no perspective scaling, so distance
+   * cannot be carried by things getting smaller — it has to be carried by
+   * colour instead. Ground sixty metres up the route was being painted at the
+   * identical value to ground under the wheels, which is the main reason the
+   * scene read as a flat sheet rather than a space you are driving into.
+   *
+   * One gradient fixes it: the far end drifts toward the light, loses contrast
+   * and shifts temperature, exactly as it does outdoors. Drawn after the
+   * terrain and before the objects, so the ground recedes while the crews you
+   * are aiming at stay crisp.
+   */
+  drawDepth(ctx) {
+    const p = this.palette;
+
+    // Distance: the far end drifts toward the light and loses contrast.
+    if (p.depth && p.depthAmt) {
+      const g = ctx.createLinearGradient(0, 0, 0, VIEW_H * 0.8);
+      g.addColorStop(0, hexA(p.depth, p.depthAmt));
+      g.addColorStop(0.4, hexA(p.depth, p.depthAmt * 0.32));
+      g.addColorStop(1, hexA(p.depth, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    }
+
+    // Direction: a key light across the scene, and the shade opposite it.
+    //
+    // Without this the whole route is filled rather than lit — every surface
+    // sits at the value its own colour says, with nothing in the picture
+    // agreeing about where the sun is. Two soft gradients are enough to make
+    // the ground read as a lit plane, and the sprites were already drawn with
+    // their light from the upper left, so this puts the scene and the art on
+    // the same story.
+    if (p.sun && p.sunAmt) {
+      const g = ctx.createLinearGradient(0, 0, VIEW_W * 0.9, VIEW_H);
+      g.addColorStop(0, hexA(p.sun, p.sunAmt));
+      g.addColorStop(0.55, hexA(p.sun, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    }
+    if (p.shade && p.shadeAmt) {
+      const g = ctx.createLinearGradient(VIEW_W, VIEW_H, VIEW_W * 0.25, 0);
+      g.addColorStop(0, hexA(p.shade, p.shadeAmt));
+      g.addColorStop(0.6, hexA(p.shade, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    }
+  }
+
   /** Kept for callers that still ask for the old single-call haze. */
   drawHaze(ctx) { this.drawGrade(ctx); }
 
@@ -411,4 +545,24 @@ function hash2(a, b) {
   return h;
 }
 
-export { hash2 };
+/**
+ * Smooth 2D value noise — the hash lattice, bilinearly blended with a smooth
+ * step. Neighbouring samples correlate, so this produces *shape*: broad soft
+ * regions of lighter and darker ground. Raw `hash2` is uncorrelated, which is
+ * why using it directly for terrain produced speckle rather than landscape.
+ */
+function noise2(x, y) {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf);
+  const v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi);
+  const b = hash2(xi + 1, yi);
+  const c = hash2(xi, yi + 1);
+  const d = hash2(xi + 1, yi + 1);
+  return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
+}
+
+export { hash2, noise2 };

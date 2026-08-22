@@ -107,6 +107,7 @@ export function start(canvas) {
     else setScene(createUpgradeScene(game, levelIndex));
   };
 
+  guardViewport();
   game.touch = setupTouch(game, canvas, input, audio);
 
   const loop = createLoop({
@@ -158,8 +159,15 @@ export function start(canvas) {
  */
 function fit(canvas, touchMode = false) {
   const portrait = window.matchMedia('(orientation: portrait)').matches;
-  const vw = (window.visualViewport?.width) || window.innerWidth;
-  const vh = (window.visualViewport?.height) || window.innerHeight;
+  // Measure the *layout* viewport, not the visual one. #stage and #touch are
+  // position:fixed, so they are laid out against the layout viewport — while
+  // visualViewport shrinks under pinch-zoom and jitters as the iOS URL bar
+  // animates. Sizing the canvas from the visual viewport meant that the moment
+  // a player zoomed, the picture was scaled for a box 26% narrower than the one
+  // it actually sat in, so the zoom did not just pan the game off-screen, it
+  // resized it wrongly as well.
+  const vw = document.documentElement.clientWidth || window.innerWidth;
+  const vh = document.documentElement.clientHeight || window.innerHeight;
   document.documentElement.style.setProperty('--pad-bottom', '0px');
 
   let scale;
@@ -182,6 +190,43 @@ function fit(canvas, touchMode = false) {
  * the keyboard uses, so nothing in the game ever learns there was a
  * touchscreen involved. Returns whether touch mode is on.
  */
+/**
+ * Stop the page zooming, and notice when it has anyway.
+ *
+ * The layout is entirely position:fixed, so a zoom does not scroll anything —
+ * it pans the visual viewport over a layout that cannot move, which strands
+ * the steering buttons off the left edge with no way back but a reload.
+ *
+ * `user-scalable=no` has been ignored by iOS Safari since iOS 10, and
+ * `touch-action: none` only suppresses double-tap zoom. Preventing WebKit's
+ * non-standard gesture events is the one thing that actually stops a pinch.
+ * It cannot stop the OS accessibility zoom, and the scale cannot be reset from
+ * script — so if the page ends up zoomed regardless, say so rather than
+ * leaving the player looking at half a game.
+ */
+function guardViewport() {
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+    document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+  }
+
+  const vv = window.visualViewport;
+  if (!vv) return;
+
+  const hint = document.getElementById('zoomhint');
+  const check = () => {
+    // A pan at scale 1 is recoverable: put it back and say nothing.
+    if (vv.scale <= 1.02) {
+      if (vv.offsetLeft || vv.offsetTop) window.scrollTo(0, 0);
+      if (hint) hint.classList.remove('on');
+      return;
+    }
+    if (hint) hint.classList.add('on');
+  };
+  vv.addEventListener('resize', check);
+  vv.addEventListener('scroll', check);
+  check();
+}
+
 function setupTouch(game, canvas, input, audio) {
   const hasTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
   if (!hasTouch) return false;

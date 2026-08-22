@@ -107,6 +107,16 @@ synthetic key events at a desktop viewport. That blind spot is now closed by
 - Targets ≥ 44 px with real spacing. Current deck is 56–112 px. Do not shrink it.
 - The throttle holds itself. No thumb is spare to keep a button pressed.
 - Tapping the picture is "confirm", so menus need no button of their own.
+- **Size the canvas from the layout viewport** (`document.documentElement.clientWidth`),
+  never from `visualViewport`. The layout is entirely `position: fixed`, so it is
+  laid out against the layout viewport, while `visualViewport` shrinks under
+  pinch-zoom and jitters as the iOS URL bar animates.
+- **The page must never zoom.** `user-scalable=no` has been ignored by iOS
+  Safari since iOS 10 and `touch-action: none` only stops double-tap, so
+  `gesturestart` is preventDefault-ed in `guardViewport()`. A zoom cannot be
+  undone from script, and with a fixed layout there is nothing to scroll back —
+  a player who zooms is stranded until they reload. Both properties are asserted
+  by `--mobile`.
 
 ### 2.5 Rebinding
 

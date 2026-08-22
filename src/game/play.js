@@ -678,6 +678,7 @@ export function createRunScene(game, levelIndex) {
 
     road.drawGround(ctx);
     road.drawSurface(ctx);
+    road.drawDepth(ctx);
 
     // Flat decals sit on the surface, under everything else.
     for (const h of route.hazards) {

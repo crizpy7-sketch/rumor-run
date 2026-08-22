@@ -20,6 +20,20 @@
   }
   body { touch-action: none; }
 
+  /* Hidden unless main.js detects a zoom it cannot undo. Pinned to the top so
+     it lands somewhere visible whichever way the zoom panned the view. */
+  #zoomhint {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 20;
+    padding: 10px calc(10px + env(safe-area-inset-left));
+    padding-top: calc(10px + env(safe-area-inset-top));
+    text-align: center;
+    font-size: 13px; letter-spacing: 0.08em;
+    color: #141317; background: #ffd24a;
+  }
+  #zoomhint.on { display: block; }
+
   #stage {
     position: fixed;
     top: 0; left: 0; right: 0;
@@ -144,6 +158,9 @@
 </head>
 <body>
   <div id="stage"><canvas id="screen" width="384" height="288"></canvas></div>
+  <!-- Only ever shown if the page ends up zoomed despite the gesture guard.
+       The scale cannot be reset from script, so the player has to be told. -->
+  <div id="zoomhint" role="status">PINCH OUT TO RESET THE VIEW</div>
 
   <div id="touch" aria-hidden="true">
     <div class="cluster left">

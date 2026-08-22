@@ -156,6 +156,47 @@ async function main() {
     }
     await shot('m-landscape', 'landscape: controls float, the route gets the height', true);
 
+    // A player reported the game half off-screen with the steering buttons
+    // stranded past the left edge. The cause was a pinch-zoom: the layout is
+    // all position:fixed, so a zoom pans the visual viewport over a layout
+    // that cannot move, and there is no way back but a reload. Two things have
+    // to hold, and neither is visible in a screenshot.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await frames(30);
+
+    // 1. The pinch has to be refused. user-scalable=no is ignored by iOS
+    //    Safari and touch-action only stops double-tap, so the gesture events
+    //    are the only lever.
+    const guarded = await page.evaluate(() => {
+      const e = new Event('gesturestart', { bubbles: true, cancelable: true });
+      document.dispatchEvent(e);
+      return e.defaultPrevented;
+    });
+    if (!guarded) errors.push('gesturestart is not prevented — iOS can pinch-zoom the game');
+
+    // 2. The canvas has to be sized from the layout viewport. Sizing it from
+    //    the visual one meant a zoom did not merely pan the game off-screen,
+    //    it resized the picture for a box narrower than the one it sat in.
+    const sized = await page.evaluate(() => {
+      const before = document.getElementById('screen').getBoundingClientRect().width;
+      const vv = window.visualViewport;
+      const w = Object.getOwnPropertyDescriptor(vv.constructor.prototype, 'width');
+      const h = Object.getOwnPropertyDescriptor(vv.constructor.prototype, 'height');
+      Object.defineProperty(vv, 'width', { get: () => 289, configurable: true });
+      Object.defineProperty(vv, 'height', { get: () => 625, configurable: true });
+      vv.dispatchEvent(new Event('resize'));
+      const after = document.getElementById('screen').getBoundingClientRect().width;
+      Object.defineProperty(vv, 'width', w);
+      Object.defineProperty(vv, 'height', h);
+      vv.dispatchEvent(new Event('resize'));
+      return { before, after };
+    });
+    if (Math.abs(sized.after - sized.before) > 1) {
+      errors.push('canvas resizes with the visual viewport '
+        + `(${Math.round(sized.before)}px -> ${Math.round(sized.after)}px); `
+        + 'size it from document.documentElement.clientWidth instead');
+    }
+
     const fpsM = await page.evaluate(() => window.RUMOR_RUN.fps);
     await writeFile(join(OUT, 'report.json'), `${JSON.stringify({
       at: new Date().toISOString(), mode: 'mobile', fps: Math.round(fpsM * 10) / 10, errors, shots,
